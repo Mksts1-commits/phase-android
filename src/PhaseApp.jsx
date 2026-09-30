@@ -4348,10 +4348,9 @@ function CardFundPanel({ onFunded }) {
 
 
 function FundAccountModal({ onClose, onFund }) {
-  // Crypto funding rails are testnet-only (Base Sepolia, Polygon Amoy,
-  // Solana Devnet, Bitcoin Testnet). Keep the Crypto tab hidden until
-  // mainnet funding rails are live.
-  const CRYPTO_FUNDING_ENABLED = false;
+  // Crypto funding rails (testnet: Base Sepolia, Polygon Amoy,
+  // Solana Devnet, Bitcoin Testnet). Shown per founder request.
+  const CRYPTO_FUNDING_ENABLED = true;
   const [method, setMethod] = useState("card"); // card | crypto
   const [step, setStep] = useState("deposit"); // deposit | waiting | confirmed (crypto flow)
   const [cryptoLoading, setCryptoLoading] = useState(false); // crypto tab loads lazily
