@@ -1520,7 +1520,7 @@ function AuthScreen({ onAuthSuccess, initialMode = "signup", notice, onOpenPriva
           : await authApi.login(cleanEmail, password);
         setAuthSession(res.token, { userId: res.userId, email: res.email, name: res.name });
         try { localStorage.removeItem("phase_remembered"); } catch {}
-        onAuthSuccess({ userId: res.userId, email: res.email, name: res.name });
+        onAuthSuccess({ userId: res.userId, email: res.email, name: res.name, phaseBalance: res.phaseBalance, signupBonusGranted: res.signupBonusGranted });
       }
     } catch (err) {
       setError(err.message || "Something went wrong. Please try again.");
@@ -2130,6 +2130,7 @@ function AppInner() {
           const me = await authApi.me();
           setAuthSession(getAuthToken(), { userId: me.userId, email: me.email, name: me.name });
           setAuthUser({ userId: me.userId, email: me.email, name: me.name });
+          if (typeof me.phaseBalance === "number") setPhaseCoins(me.phaseBalance);
           refreshMyCoins();
         }
       } catch {
@@ -2517,7 +2518,17 @@ function AppInner() {
         showToast("Not enough PHASE Coins for that amount");
         return;
       }
-      setPhaseCoins((c) => c - amountInPhase);
+      try {
+        const res = await backendFetch("/account/phase-spend", {
+          method: "POST",
+          body: { amount: Math.floor(amountInPhase) },
+        });
+        if (typeof res.phaseBalance === "number") setPhaseCoins(res.phaseBalance);
+        else setPhaseCoins((c) => c - amountInPhase);
+      } catch (e) {
+        showToast(e.message || "Couldn't spend PHASE — please try again");
+        return;
+      }
     } else {
       const rate = liveFx[payCurrencyId] != null ? liveFx[payCurrencyId] : BASE_FX[payCurrencyId] || 1;
       const amountInPayCurrency = amountUsd * rate;
@@ -2639,6 +2650,8 @@ function AppInner() {
             onAuthSuccess={(u) => {
               setAuthNotice(null);
               setAuthUser(u);
+              if (typeof u.phaseBalance === "number") setPhaseCoins(u.phaseBalance);
+              if (u.signupBonusGranted) showToast("Welcome! 1,000 PHASE bonus added to your account.");
               refreshTradeBalances();
               refreshFundingStatus();
               refreshMyCoins();
