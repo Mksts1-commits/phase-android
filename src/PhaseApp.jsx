@@ -1771,12 +1771,17 @@ function EditCoinModal({ coin, onClose, onSaved }) {
 
   const save = async () => {
     setError("");
+    const normalizeUrl = (u) => {
+      const t = (u || "").trim();
+      if (!t) return "";
+      return /^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `https://${t}`;
+    };
     const cleanProfiles = profiles
-      .map((p) => ({ platform: p.platform, url: (p.url || "").trim() }))
+      .map((p) => ({ platform: p.platform, url: normalizeUrl(p.url) }))
       .filter((p) => p.url);
     const patch = {
       tagline: tagline.trim(),
-      websiteUrl: websiteUrl.trim() || null,
+      websiteUrl: normalizeUrl(websiteUrl) || null,
       socialProfiles: cleanProfiles,
     };
     setSaving(true);
@@ -2781,6 +2786,7 @@ function AppInner() {
                       ...a,
                       tagline: patch.tagline || a.tagline,
                       websiteUrl: patch.websiteUrl !== undefined ? patch.websiteUrl : a.websiteUrl,
+                      socialProfiles: patch.socialProfiles || [],
                     }
                   : a
               )
