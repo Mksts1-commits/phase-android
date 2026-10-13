@@ -2796,7 +2796,20 @@ function BackgroundGrid() {
   return (
     <div className="bg-grid" aria-hidden="true">
       <div className="bg-grid-inner" />
+      <div className="bg-top-wash" />
       <svg className="bg-circuit" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="ribbonFade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#a3e635" stopOpacity="0" />
+            <stop offset="30%" stopColor="#a3e635" stopOpacity="0.55" />
+            <stop offset="70%" stopColor="#00e676" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#00e676" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Flowing ribbon accents — soft, fluid counterpoint to the circuit traces */}
+        <path className="bg-ribbon" d="M-20,120 C120,90 200,200 420,140" strokeWidth="26" opacity="0.16" />
+        <path className="bg-ribbon" d="M-20,205 C140,175 220,285 420,225" strokeWidth="13" opacity="0.20" />
+        <path className="bg-ribbon" d="M-20,700 C150,660 260,765 420,700" strokeWidth="20" opacity="0.14" />
         <path className="trace-glow" d="M-10,150 H95 V265 H210 V400" />
         <path className="trace" d="M-10,150 H95 V265 H210 V400" />
         <circle className="node" cx="95" cy="150" r="3.5" />
@@ -8070,6 +8083,29 @@ function GlobalStyles() {
         background-size: 42px 42px;
         animation: gridBreathe 12s ease-in-out infinite;
       }
+      /* Soft lime wash from the top — wallet-mockup inspired, kept whisper-light */
+      .bg-top-wash {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 320px;
+        background: linear-gradient(180deg, rgba(163,230,53,0.13) 0%, rgba(163,230,53,0.035) 55%, transparent 100%);
+      }
+      .bg-ribbon {
+        fill: none;
+        stroke: url(#ribbonFade);
+        stroke-linecap: round;
+      }
+      /* Dashboard hero card: gentle lime gradient crown, echoing the wallet mockup */
+      .net-worth-card { position: relative; overflow: hidden; }
+      .net-worth-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 150px;
+        background: linear-gradient(180deg, rgba(163,230,53,0.20) 0%, rgba(0,230,118,0.05) 65%, transparent 100%);
+        pointer-events: none;
+      }
+      .net-worth-card > * { position: relative; }
       @keyframes gridBreathe {
         0%, 100% { opacity: 0.6; transform: scale(1); }
         50% { opacity: 1; transform: scale(1.02); }
