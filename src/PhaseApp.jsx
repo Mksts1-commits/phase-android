@@ -5699,8 +5699,8 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
             onInvest(activeAsset, amount, payCurrency);
             setActiveAsset(null);
           }}
-          onInvestSwap={(offerCoin, offerUnits) => {
-            onInvestSwap(activeAsset, offerCoin, offerUnits);
+          onInvestSwap={(offerCoin, offerUnits, requestUnits) => {
+            onInvestSwap(activeAsset, offerCoin, offerUnits, requestUnits);
             setActiveAsset(null);
           }}
         />
@@ -6565,6 +6565,7 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
                 <button
                   className={`btn-primary btn-large btn-full ${
                     numericOfferUnits < 1 ||
+                    numericRequestUnits < 1 ||
                     numericOfferUnits > offerBalance ||
                     swapQuoteLoading ||
                     !!swapQuoteError
@@ -6573,6 +6574,7 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
                   }`}
                   disabled={
                     numericOfferUnits < 1 ||
+                    numericRequestUnits < 1 ||
                     numericOfferUnits > offerBalance ||
                     swapQuoteLoading ||
                     !!swapQuoteError
