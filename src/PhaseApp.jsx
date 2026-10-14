@@ -5172,25 +5172,14 @@ function MarketEntrySelect({ counts, onPick, onBrowseAll }) {
       <div className="glass-card market-entry-card">
         <h3 className="cat-picker-title">What are you looking for?</h3>
         <p className="cat-picker-sub">Pick a category to jump straight into live listings.</p>
-        <label className="field-label" htmlFor="market-category-select">Choose a category</label>
-        <div className="market-entry-select-wrap">
-          <select
-            id="market-category-select"
-            className="market-entry-select"
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) onPick(e.target.value);
-            }}
-          >
-            <option value="" disabled>Select a category…</option>
-            {Object.entries(ASSET_CATEGORIES).map(([key, meta]) => (
-              <option key={key} value={key}>
-                {meta.label} — {counts[key] || 0} live
-              </option>
-            ))}
-          </select>
+        <label className="field-label">Choose a category</label>
+        <button
+          className="market-entry-select market-entry-select-btn"
+          onClick={() => onPick("__premium__")}
+        >
+          <span>Select a category…</span>
           <Icon name="arrowRight" size={14} />
-        </div>
+        </button>
         <div className="market-entry-divider">
           <span>or</span>
         </div>
@@ -8393,6 +8382,13 @@ function GlobalStyles() {
       .premium-teaser .matrix-rain { opacity: 0.9; }
       .premium-teaser .matrix-vignette {
         background: radial-gradient(ellipse at center, transparent 18%, rgba(4,8,6,0.55) 78%);
+      }
+      /* Custom category button (replaces native select to gate via Premium teaser). */
+      .market-entry-select-btn {
+        width: 100%; display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 16px; border-radius: 14px; cursor: pointer;
+        background: rgba(255,255,255,0.7); border: 1px solid rgba(0,166,81,0.25);
+        font-size: 15px; font-weight: 600; color: #0b100d; text-align: left;
       }
 
       /* ---------------- App motion ---------------- */
