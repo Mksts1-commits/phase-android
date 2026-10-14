@@ -1749,7 +1749,7 @@ function EditCoinModal({ coin, onClose, onSaved }) {
           setTagline(match.tagline || "");
           setWebsiteUrl(match.websiteUrl || "");
           setProfiles((match.socialProfiles || []).map((p) => ({
-            platform: p.platform || "tiktok",
+            platform: (p.platform || "tiktok").toLowerCase(),
             url: p.url || "",
           })));
         }
@@ -2807,6 +2807,8 @@ function AppInner() {
                   : a
               )
             );
+            // Tell the marketplace tab to reload so the new links show immediately.
+            window.dispatchEvent(new Event("phase:coins-changed"));
             showToast("Coin updated.");
           }}
         />
@@ -5494,6 +5496,13 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
 
   useEffect(() => {
     refreshDirectory();
+  }, [refreshDirectory]);
+
+  // Refresh when a coin is edited elsewhere (e.g. dashboard Edit modal).
+  useEffect(() => {
+    const onChanged = () => refreshDirectory();
+    window.addEventListener("phase:coins-changed", onChanged);
+    return () => window.removeEventListener("phase:coins-changed", onChanged);
   }, [refreshDirectory]);
 
   const toggleCompare = (chainId) => {
