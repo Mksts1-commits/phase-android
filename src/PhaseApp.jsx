@@ -2880,7 +2880,7 @@ function BackgroundGrid() {
 /* ------------------------------ Splash ------------------------------------- */
 
 /* Reusable Matrix digital-rain canvas (the splash keeps its own copy untouched). */
-function MatrixRain({ className = "splash-rain" }) {
+function MatrixRain({ className = "splash-rain", density = 1 }) {
   const canvasRef = useRef(null);
   const reduceMotion =
     typeof window !== "undefined" &&
@@ -2893,7 +2893,7 @@ function MatrixRain({ className = "splash-rain" }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     const glyphs = "01\u03a6\u039e$#<>/\\|*+=".split("");
-    const fontSize = 14;
+    const fontSize = Math.max(8, Math.round(14 / density));
     let w = 0, h = 0, columns = 0, drops = [];
     const resize = () => {
       w = canvas.width = canvas.offsetWidth;
@@ -2929,17 +2929,17 @@ function MatrixRain({ className = "splash-rain" }) {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
     };
-  }, [reduceMotion]);
+  }, [reduceMotion, density]);
 
   if (reduceMotion) return null;
   return <canvas ref={canvasRef} className={className} />;
 }
 
 /* Full-screen Matrix moment for signature actions (signup, mint). Controlled by parent — no auto-fade. */
-function MatrixOverlay({ title, subtitle }) {
+function MatrixOverlay({ title, subtitle, density = 1 }) {
   return (
     <div className="matrix-overlay" aria-hidden="true">
-      <MatrixRain className="matrix-rain" />
+      <MatrixRain className="matrix-rain" density={density} />
       <div className="matrix-vignette" />
       <div className="matrix-mark">
         <img src="logo.png" alt="" className="matrix-logo" draggable="false" />
@@ -5212,6 +5212,7 @@ function CategoryPicker({ counts, onPick }) {
         <MatrixOverlay
           title="Phase Premium"
           subtitle="Stocks, real estate, energy & more — tokenized assets coming soon."
+          density={1.8}
         />
       </div>
     </div>
@@ -5681,8 +5682,8 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
           <MarketEntrySelect
             counts={countsByCategory}
             onPick={(id) => {
-              setCategoryFilter(id);
-              setSubsectionFilter("all");
+              // Traditional assets are Phase Premium — gate the dropdown too.
+              setMarketEntry("browse");
             }}
             onBrowseAll={() => setMarketEntry("browse")}
           />
