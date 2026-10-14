@@ -5204,6 +5204,24 @@ function MarketEntrySelect({ counts, onPick, onBrowseAll }) {
 }
 
 function CategoryPicker({ counts, onPick }) {
+  const [dismissed, setDismissed] = useState(false);
+  // Traditional asset categories are Phase Premium — show the Matrix teaser
+  // instead of an under-construction category list.
+  if (!dismissed) {
+    return (
+      <div className="cat-picker">
+        <div className="premium-teaser">
+          <MatrixOverlay
+            title="Phase Premium"
+            subtitle="Stocks, real estate, energy & more — tokenized assets coming soon."
+          />
+          <button className="pill-btn premium-close" onClick={() => setDismissed(true)}>
+            Browse categories
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="cat-picker">
       <div className="glass-card cat-picker-card">
@@ -8388,6 +8406,19 @@ function GlobalStyles() {
       @media (prefers-reduced-motion: reduce) {
         .matrix-overlay { animation: none; }
         .matrix-logo { animation: none; }
+      }
+      /* Phase Premium teaser: contained Matrix rain, not full-screen. */
+      .premium-teaser {
+        position: relative; border-radius: 20px; overflow: hidden;
+        min-height: 420px; display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: #040806;
+      }
+      .premium-teaser .matrix-overlay {
+        position: absolute; inset: 0; z-index: 1;
+      }
+      .premium-teaser .premium-close {
+        position: relative; z-index: 2; margin-top: 220px;
       }
 
       /* ---------------- App motion ---------------- */
