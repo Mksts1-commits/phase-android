@@ -724,7 +724,7 @@ const NEWS_ITEMS = [
 // the UI changes.
 
 const PHI_GREETING =
-  "hi im james \u2014 your guide to Phase. Ask me anything: going live, the coin split, the Issuer Agreement, or investing.";
+  "i'm your guide to phase.";
 
 const PHI_SUGGESTIONS = [
   "How do I go live?",
