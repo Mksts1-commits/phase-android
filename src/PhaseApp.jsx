@@ -5200,7 +5200,7 @@ function CategoryPicker({ counts, onPick }) {
       <div className="premium-teaser">
         <MatrixOverlay
           title="Phase Premium"
-          subtitle="Stocks, real estate, energy & more — tokenized assets coming soon."
+          subtitle="Stocks, real estate, energy & more onchain products."
           density={1.8}
         />
       </div>
