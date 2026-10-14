@@ -283,6 +283,8 @@ const adminApi = {
     backendFetch(
       `/admin/treasury/withdrawals${status ? `?status=${encodeURIComponent(status)}` : ""}`
     ),
+  deleteCoin: (coinId) =>
+    backendFetch(`/admin/coins/${encodeURIComponent(coinId)}`, { method: "DELETE" }),
   approveWithdrawal: (id) =>
     backendFetch(`/admin/treasury/withdrawals/${encodeURIComponent(id)}/approve`, {
       method: "POST",
@@ -6739,6 +6741,7 @@ function AdminDashboardModal({ onClose, showToast }) {
     ["fees", "Fees"],
     ["ledger", "Fee ledger"],
     ["treasury", "Treasury"],
+    ["coins", "Coins"],
     ["recon", "Reconciliation"],
     ["system", "System"],
     ["admins", "Admins"],
@@ -6765,6 +6768,7 @@ function AdminDashboardModal({ onClose, showToast }) {
         {tab === "fees" && <AdminFeesTab showToast={showToast} />}
         {tab === "ledger" && <AdminLedgerTab showToast={showToast} />}
         {tab === "treasury" && <AdminTreasuryTab showToast={showToast} />}
+        {tab === "coins" && <AdminCoinsTab showToast={showToast} />}
         {tab === "recon" && <AdminReconTab showToast={showToast} />}
         {tab === "system" && <AdminSystemTab showToast={showToast} />}
         {tab === "admins" && <AdminUsersTab showToast={showToast} />}
@@ -7140,6 +7144,67 @@ function AdminTreasuryTab({ showToast }) {
                         Execute
                       </button>
                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminCoinsTab({ showToast }) {
+  const [coins, setCoins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(null);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const d = await marketApi.directory();
+      setCoins(d.coins || []);
+    } catch (e) {
+      showToast("Couldn't load coins");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
+  useEffect(() => { refresh(); }, [refresh]);
+  const remove = async (coin) => {
+    if (!window.confirm(`Delete ${coin.ticker} (${coin.name}) permanently? This removes the coin, its chain, and its documents. Cannot be undone.`)) return;
+    setDeleting(coin.id);
+    try {
+      await adminApi.deleteCoin(coin.id);
+      showToast(`${coin.ticker} deleted`);
+      refresh();
+    } catch (e) {
+      showToast(e?.message || "Delete failed");
+    } finally {
+      setDeleting(null);
+    }
+  };
+  return (
+    <div>
+      <p className="section-sub">All live coins. Deleting is permanent and blocked if the coin has trading activity.</p>
+      {loading ? <p>Loading…</p> : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>Ticker</th><th>Name</th><th>Price</th><th></th></tr></thead>
+            <tbody>
+              {coins.map((c) => (
+                <tr key={c.id}>
+                  <td><strong>{c.ticker}</strong></td>
+                  <td>{c.name}</td>
+                  <td>${Number(c.priceUsd || 0).toFixed(2)}</td>
+                  <td>
+                    <button
+                      className="pill-btn pill-btn-danger"
+                      disabled={deleting === c.id}
+                      onClick={() => remove(c)}
+                    >
+                      {deleting === c.id ? "Deleting…" : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
