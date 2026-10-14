@@ -2687,13 +2687,27 @@ function AppInner() {
             </div>
           </div>
         )}
-        {activeTab === "market" && authUser && (
+        {activeTab === "market" && (
           <MarketplaceTab
             assets={assets}
             currency={currency}
             setCurrency={setCurrency}
-            onInvest={invest}
-            onInvestSwap={investSwap}
+            onInvest={(...args) => {
+              if (!authUser) {
+                setAuthNotice("Sign up or log in to invest — it takes a minute, and you get 1,000 PHASE free.");
+                setActiveTab("golive");
+                return;
+              }
+              return invest(...args);
+            }}
+            onInvestSwap={(...args) => {
+              if (!authUser) {
+                setAuthNotice("Sign up or log in to make swap offers — it takes a minute, and you get 1,000 PHASE free.");
+                setActiveTab("golive");
+                return;
+              }
+              return investSwap(...args);
+            }}
             sovereignAddress={sovereignWallet?.address}
             phaseCoins={phaseCoins}
             cashBalances={cashBalances}
@@ -3018,7 +3032,9 @@ function TopNav({ activeTab, setActiveTab, authUser, onLogout, onOpenAccount }) 
     { id: "market", label: "Marketplace", icon: "directory" },
   ];
   const handleTab = (id) => {
-    if ((id === "dashboard" || id === "market") && !authUser) {
+    // Marketplace is public — browse without an account. Dashboard stays
+    // gated; buying/investing prompts signup at the action.
+    if (id === "dashboard" && !authUser) {
       setActiveTab("golive");
       return;
     }
