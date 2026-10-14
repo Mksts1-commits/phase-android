@@ -3221,7 +3221,8 @@ function GoLiveTab({ onPublish, issuerAddress }) {
     hasDocumentation &&
     businessAttestationDone &&
     startingPrice > 0 &&
-    totalShares >= 1000;
+    totalShares >= 1000 &&
+    (startingPrice || 0) * (totalShares || 0) <= 500_000_000;
 
 
 
@@ -3700,6 +3701,16 @@ function GoLiveTab({ onPublish, issuerAddress }) {
           {totalShares.toLocaleString()} fractional shares mint at genesis. Set how many go to
           the public float vs. what you retain — it's entirely up to you.
         </p>
+        {(() => {
+          const mcap = (startingPrice || 0) * (totalShares || 0);
+          const over = mcap > 500_000_000;
+          const fmt = (n) => n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${Math.round(n).toLocaleString()}`;
+          return (
+            <p className="field-hint" style={over ? { color: "#c62828", fontWeight: 600 } : undefined}>
+              Market cap at issuance: {fmt(mcap)}{over ? " — exceeds the $500M limit. Lower the price or supply." : ""}
+            </p>
+          );
+        })()}
         <EquitySplitSlider
           equityPublic={equityPublic}
           setEquityPublic={setEquityPublic}
