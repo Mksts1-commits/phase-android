@@ -5204,43 +5204,15 @@ function MarketEntrySelect({ counts, onPick, onBrowseAll }) {
 }
 
 function CategoryPicker({ counts, onPick }) {
-  const [dismissed, setDismissed] = useState(false);
   // Traditional asset categories are Phase Premium — show the Matrix teaser
-  // instead of an under-construction category list.
-  if (!dismissed) {
-    return (
-      <div className="cat-picker">
-        <div className="premium-teaser">
-          <MatrixOverlay
-            title="Phase Premium"
-            subtitle="Stocks, real estate, energy & more — tokenized assets coming soon."
-          />
-          <button className="pill-btn premium-close" onClick={() => setDismissed(true)}>
-            Browse categories
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // as a gate. No browse-through; this section is not yet live.
   return (
     <div className="cat-picker">
-      <div className="glass-card cat-picker-card">
-        <h3 className="cat-picker-title">What are you looking for?</h3>
-        <p className="cat-picker-sub">Pick a category to browse live listings.</p>
-        <div className="cat-picker-list">
-          {Object.entries(ASSET_CATEGORIES).map(([key, meta]) => (
-            <button key={key} className="cat-picker-btn" onClick={() => onPick(key)}>
-              <span className="cat-picker-icon">
-                <Icon name={meta.icon} size={20} />
-              </span>
-              <span className="cat-picker-text">
-                <span className="cat-picker-label">{meta.label}</span>
-                <span className="cat-picker-count">{counts[key] || 0} live</span>
-              </span>
-              <Icon name="arrowRight" size={14} />
-            </button>
-          ))}
-        </div>
+      <div className="premium-teaser">
+        <MatrixOverlay
+          title="Phase Premium"
+          subtitle="Stocks, real estate, energy & more — tokenized assets coming soon."
+        />
       </div>
     </div>
   );
@@ -8417,8 +8389,9 @@ function GlobalStyles() {
       .premium-teaser .matrix-overlay {
         position: absolute; inset: 0; z-index: 1;
       }
-      .premium-teaser .premium-close {
-        position: relative; z-index: 2; margin-top: 220px;
+      .premium-teaser .matrix-rain { opacity: 0.9; }
+      .premium-teaser .matrix-vignette {
+        background: radial-gradient(ellipse at center, transparent 18%, rgba(4,8,6,0.55) 78%);
       }
 
       /* ---------------- App motion ---------------- */
