@@ -2751,6 +2751,7 @@ function AppInner() {
               offerInbox={offerInbox}
               offerOutbox={offerOutbox}
               onOfferAction={handleOfferAction}
+              onEditCoin={setEditingCoin}
             />
           )
         )}
@@ -7499,6 +7500,7 @@ function DashboardTab({
   offerInbox,
   offerOutbox,
   onOfferAction,
+  onEditCoin,
 }) {
   const [showFundModal, setShowFundModal] = useState(false);
   // Counter-offer editing state: { offerId, offerUnits, requestUnits }.
@@ -7747,7 +7749,7 @@ function DashboardTab({
                   <button
                     className="btn btn-ghost btn-sm product-edit-btn"
                     type="button"
-                    onClick={() => setEditingCoin(a)}
+                    onClick={() => onEditCoin(a)}
                   >
                     Edit
                   </button>
