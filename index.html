@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Phase — Turn Anything Into a Tradeable Asset</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #060a08; color: #fff;
+    min-height: 100vh;
+  }
+  .hero {
+    position: relative; width: 100%; max-height: 62vh; overflow: hidden;
+    background: #060a08;
+  }
+  .hero video {
+    width: 100%; height: 100%; max-height: 62vh; object-fit: cover; display: block;
+  }
+  .card-wrap {
+    display: flex; justify-content: center; padding: 20px 24px 40px;
+  }
+  .card {
+    background: #fff; color: #0b100d; border-radius: 24px; padding: 32px 28px;
+    max-width: 420px; width: 100%; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,166,81,0.12);
+  }
+  .card p { color: #5a6b60; line-height: 1.6; margin-bottom: 20px; font-size: 15px; }
+  .btn {
+    display: block; width: 100%; padding: 16px; border-radius: 14px;
+    font-size: 17px; font-weight: 700; text-decoration: none;
+    margin-bottom: 12px; border: none; cursor: pointer;
+  }
+  .btn-primary { background: #00a651; color: #fff; }
+  .btn-secondary { background: #e8f5ec; color: #00a651; }
+  .hint { font-size: 13px; color: #8a9a90; margin-top: 12px; line-height: 1.5; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="hero">
+  <video autoplay muted loop playsinline preload="auto">
+    <source src="./hero.mp4" type="video/mp4">
+  </video>
+</div>
+<div class="card-wrap">
+  <div class="card">
+    <div id="ios-msg" class="hidden">
+      <p>Tap below to open Phase in your browser. For the full experience, tap <strong>Share → Add to Home Screen</strong>.</p>
+      <a class="btn btn-primary" href="./app/">Open Phase Web App</a>
+      <p class="hint">The native iPhone app is coming to the App Store soon.</p>
+    </div>
+    <div id="android-msg" class="hidden">
+      <p>Get Phase for Android — download the app, or use it right in your browser.</p>
+      <a class="btn btn-primary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
+      <a class="btn btn-secondary" href="./app/">Open Web App Instead</a>
+    </div>
+    <div id="desktop-msg" class="hidden">
+      <p>Choose your platform:</p>
+      <a class="btn btn-primary" href="./app/">Open Web App</a>
+      <a class="btn btn-secondary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
+    </div>
+  </div>
+</div>
+<script>
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  if (isIOS) {
+    document.getElementById('ios-msg').classList.remove('hidden');
+  } else if (isAndroid) {
+    document.getElementById('android-msg').classList.remove('hidden');
+  } else {
+    document.getElementById('desktop-msg').classList.remove('hidden');
+  }
+</script>
+</body>
+</html>
