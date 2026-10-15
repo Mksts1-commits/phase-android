@@ -5193,14 +5193,14 @@ function MarketEntrySelect({ counts, onPick, onBrowseAll }) {
 }
 
 function CategoryPicker({ counts, onPick }) {
-  // Traditional asset categories are Phase Premium — show the Matrix teaser
+  // Traditional asset categories are Phase Privates — show the Matrix teaser
   // as a gate. No browse-through; this section is not yet live.
   return (
     <div className="cat-picker">
       <div className="premium-teaser">
         <MatrixOverlay
-          title="Phase Premium"
-          subtitle="Stocks, real estate, energy & more onchain products."
+          title="Phase Privates"
+          subtitle=""
           density={1.8}
         />
       </div>
@@ -5671,7 +5671,7 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
           <MarketEntrySelect
             counts={countsByCategory}
             onPick={(id) => {
-              // Traditional assets are Phase Premium — gate the dropdown too.
+              // Traditional assets are Phase Privates — gate the dropdown too.
               setMarketEntry("browse");
             }}
             onBrowseAll={() => setMarketEntry("browse")}
@@ -8369,7 +8369,7 @@ function GlobalStyles() {
         .matrix-overlay { animation: none; }
         .matrix-logo { animation: none; }
       }
-      /* Phase Premium teaser: contained Matrix rain, not full-screen. */
+      /* Phase Privates teaser: contained Matrix rain, not full-screen. */
       .premium-teaser {
         position: relative; border-radius: 20px; overflow: hidden;
         min-height: 420px; display: flex; flex-direction: column;
