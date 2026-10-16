@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.phase.app-mergeReleaseResources-25:/values-v16/values-v16.xml",
+            "map": [
+                {
+                    "source": "/home/hatch/workspace/.gradle-home/caches/8.14.3/transforms/ea24f605ce04bd6a82167709898886e1/transformed/appcompat-1.7.1/res/values-v16/values-v16.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "5",
+                        "endColumns": "12",
+                        "endOffsets": "223"
+                    }
+                }
+            ]
+        }
+    ]
+}

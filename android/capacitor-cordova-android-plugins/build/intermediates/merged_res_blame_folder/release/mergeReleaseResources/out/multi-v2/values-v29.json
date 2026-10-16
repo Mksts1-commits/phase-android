@@ -1,0 +1,36 @@
+{
+    "logs": [
+        {
+            "outputFile": "capacitor.cordova.android.plugins.capacitor-cordova-android-plugins-release-23:/values-v29/values-v29.xml",
+            "map": [
+                {
+                    "source": "/home/hatch/workspace/.gradle-home/caches/8.14.3/transforms/f7ea8198cd4e2cf81271bc26f47fced7/transformed/core-splashscreen-1.0.1/res/values-v29/values-v29.xml",
+                    "from": {
+                        "startLines": "2,7",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,374",
+                        "endLines": "6,8",
+                        "endColumns": "12,12",
+                        "endOffsets": "369,464"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "capacitor.cordova.android.plugins.capacitor-cordova-android-plugins-mergeReleaseResources-21:/values-v29/values-v29.xml",
+            "map": [
+                {
+                    "source": "/home/hatch/workspace/.gradle-home/caches/8.14.3/transforms/f7ea8198cd4e2cf81271bc26f47fced7/transformed/core-splashscreen-1.0.1/res/values-v29/values-v29.xml",
+                    "from": {
+                        "startLines": "2,7",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,374",
+                        "endLines": "6,8",
+                        "endColumns": "12,12",
+                        "endOffsets": "369,464"
+                    }
+                }
+            ]
+        }
+    ]
+}

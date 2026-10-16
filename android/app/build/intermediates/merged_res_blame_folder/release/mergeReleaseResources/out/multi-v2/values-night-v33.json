@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.phase.app-mergeReleaseResources-25:/values-night-v33/values-night-v33.xml",
+            "map": [
+                {
+                    "source": "/home/hatch/workspace/.gradle-home/caches/8.14.3/transforms/d14b9a3a8d32a61f9a7508f5a0dc7a58/transformed/core-splashscreen-1.2.0/res/values-night-v33/values-night-v33.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "4",
+                        "endColumns": "12",
+                        "endOffsets": "215"
+                    }
+                }
+            ]
+        }
+    ]
+}
