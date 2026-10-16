@@ -2267,16 +2267,27 @@ function AppInner() {
   const [sovereignWallet, setSovereignWallet] = useState(null);
   // Refresh sovereign coin holdings: coins the user holds but did NOT issue
   // (received via swap or purchase). Checks on-chain balance per chain.
+  // Checks both the device wallet AND the issuer addresses from the user's
+  // coins, since swap settlements credit the issuer address on record.
   const refreshCoinHoldings = useCallback(async () => {
-    if (!isLoggedIn() || !sovereignWallet?.address) return;
+    if (!isLoggedIn()) return;
     try {
       const [dirData, myData] = await Promise.all([
         marketApi.directory().catch(() => ({ coins: [] })),
         marketApi.myCoins().catch(() => ({ coins: [] })),
       ]);
       const allCoins = dirData.coins || [];
-      const myChainIds = new Set((myData.coins || []).map((c) => c.mintAddress || c.chainId));
-      const address = sovereignWallet.address;
+      const myCoins = myData.coins || [];
+      const myChainIds = new Set(myCoins.map((c) => c.mintAddress || c.chainId));
+      // Collect all addresses to check: device wallet + issuer addresses
+      const addresses = new Set();
+      if (sovereignWallet?.address) addresses.add(sovereignWallet.address);
+      myCoins.forEach((c) => {
+        if (c.issuerAddress) addresses.add(c.issuerAddress);
+        if (c.mintAddress && c.mintAddress.startsWith("ph")) addresses.add(c.mintAddress);
+      });
+      if (addresses.size === 0) return;
+      const addressList = Array.from(addresses);
       const results = await Promise.all(
         allCoins
           .filter((c) => {
@@ -2285,20 +2296,24 @@ function AppInner() {
           })
           .map(async (c) => {
             const chainId = c.mintAddress || c.chainId || c.id;
-            try {
-              const bal = await marketApi.chainBalance(chainId, address);
-              const units = Number(bal?.balance ?? bal?.units ?? 0);
-              if (units > 0) {
-                return {
-                  chainId,
-                  ticker: c.ticker,
-                  name: c.name,
-                  units,
-                  priceUsd: Number(c.priceUsd) || 0,
-                  category: c.category || "socialMedia",
-                };
-              }
-            } catch (e) { /* no balance on this chain */ }
+            // Sum balances across all known addresses
+            let totalUnits = 0;
+            for (const addr of addressList) {
+              try {
+                const bal = await marketApi.chainBalance(chainId, addr);
+                totalUnits += Number(bal?.balance ?? bal?.units ?? 0);
+              } catch (e) { /* no balance at this address */ }
+            }
+            if (totalUnits > 0) {
+              return {
+                chainId,
+                ticker: c.ticker,
+                name: c.name,
+                units: totalUnits,
+                priceUsd: Number(c.priceUsd) || 0,
+                category: c.category || "socialMedia",
+              };
+            }
             return null;
           })
       );
