@@ -2780,6 +2780,7 @@ function AppInner() {
               await tradeApi.topup(amt);
               await refreshTradeBalances();
             }}
+            coinHoldings={coinHoldings}
           />
         )}
         {activeTab === "dashboard" && authUser && (
@@ -5478,7 +5479,7 @@ function CompareModal({ coins, onRemove, onClose, onBuy }) {
   );
 }
 
-function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap, sovereignAddress, phaseCoins, cashBalances, liveFx, tradeCashUsd, onTopup }) {
+function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap, sovereignAddress, phaseCoins, cashBalances, liveFx, tradeCashUsd, onTopup, coinHoldings }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [marketEntry, setMarketEntry] = useState("select"); // select (dropdown) | browse (all category cards)
   const [subsectionFilter, setSubsectionFilter] = useState("all");
