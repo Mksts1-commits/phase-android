@@ -2169,6 +2169,8 @@ function AppInner() {
   }, []);
   // Offer actions: accept / counter / decline, then refresh everything.
   const handleOfferAction = useCallback(async (action, offerId, counter) => {
+    // Immediate feedback — the backend may take 30s+ to wake from idle.
+    if (action === "accept") showToast("Accepting offer — settling swap…");
     try {
       if (action === "accept") await marketApi.acceptOffer(offerId);
       else if (action === "decline") await marketApi.declineOffer(offerId);
@@ -2177,7 +2179,7 @@ function AppInner() {
         action === "accept" ? "Offer accepted — swap settled" :
         action === "decline" ? "Offer declined" : "Counter-offer sent"
       );
-      await Promise.all([refreshOffers(), refreshMyCoins(), refreshTradeBalances()]);
+      await Promise.all([refreshOffers(), refreshMyCoins(), refreshTradeBalances(), refreshCoinHoldings()]);
     } catch (e) {
       showToast(e.message || "Couldn't update the offer — please try again");
     }
@@ -2188,6 +2190,7 @@ function AppInner() {
     if (activeTab === "dashboard" && authUser) {
       refreshMyCoins();
       refreshOffers();
+      refreshCoinHoldings();
     }
   }, [activeTab, authUser]); // eslint-disable-line react-hooks/exhaustive-deps
   // Bank-style inactivity lock: after INACTIVITY_TIMEOUT_MS with no
@@ -2233,6 +2236,49 @@ function AppInner() {
   const [currency, setCurrency] = useState("usd");
   const [assets, setAssets] = useState([]); // live directory — populated from the backend only
   const [holdings, setHoldings] = useState([]); // { assetId, units, costBasisUsd }
+  const [coinHoldings, setCoinHoldings] = useState([]); // sovereign coins received via swap/buy: { chainId, ticker, name, units, priceUsd }
+  // Refresh sovereign coin holdings: coins the user holds but did NOT issue
+  // (received via swap or purchase). Checks on-chain balance per chain.
+  const refreshCoinHoldings = useCallback(async () => {
+    if (!isLoggedIn() || !sovereignWallet?.address) return;
+    try {
+      const [dirData, myData] = await Promise.all([
+        marketApi.directory().catch(() => ({ coins: [] })),
+        marketApi.myCoins().catch(() => ({ coins: [] })),
+      ]);
+      const allCoins = dirData.coins || [];
+      const myChainIds = new Set((myData.coins || []).map((c) => c.mintAddress || c.chainId));
+      const address = sovereignWallet.address;
+      const results = await Promise.all(
+        allCoins
+          .filter((c) => {
+            const chainId = c.mintAddress || c.chainId || c.id;
+            return chainId && !myChainIds.has(chainId);
+          })
+          .map(async (c) => {
+            const chainId = c.mintAddress || c.chainId || c.id;
+            try {
+              const bal = await marketApi.chainBalance(chainId, address);
+              const units = Number(bal?.balance ?? bal?.units ?? 0);
+              if (units > 0) {
+                return {
+                  chainId,
+                  ticker: c.ticker,
+                  name: c.name,
+                  units,
+                  priceUsd: Number(c.priceUsd) || 0,
+                  category: c.category || "socialMedia",
+                };
+              }
+            } catch (e) { /* no balance on this chain */ }
+            return null;
+          })
+      );
+      setCoinHoldings(results.filter(Boolean));
+    } catch (e) {
+      console.warn("coin holdings refresh failed", e);
+    }
+  }, [sovereignWallet?.address]);
   const [txHistory, setTxHistory] = useState([]);
   const [cashBalances, setCashBalances] = useState({}); // { usd: 0, cad: 0, usdc: 0, ... } funded cash, separate from PHASE coins
   // Backend settlement ledger (USD) for sovereign-coin trades. Buyer USD is
@@ -2734,6 +2780,7 @@ function AppInner() {
             <DashboardTab
               assets={assets}
               holdings={holdings}
+              coinHoldings={coinHoldings}
               currency={currency}
               setCurrency={setCurrency}
               phaseCoins={phaseCoins}
@@ -7463,6 +7510,7 @@ function useCountUp(target, duration = 900) {
 function DashboardTab({
   assets,
   holdings,
+  coinHoldings,
   currency,
   setCurrency,
   phaseCoins,
@@ -7739,6 +7787,51 @@ function DashboardTab({
           </div>
         )}
       </section>
+
+      {/* ---------------- Coin Holdings (received via swap/buy) ---------------- */}
+      {(coinHoldings?.length > 0) && (
+        <section className="glass-card products-card">
+          <div className="dash-section-header">
+            <h3 className="subsection-title">Coin Holdings</h3>
+            <span className="stat-value">
+              {formatCurrency(
+                coinHoldings.reduce((sum, h) => sum + h.units * h.priceUsd, 0),
+                currency,
+                liveFx
+              )}
+            </span>
+          </div>
+          <div className="products-list">
+            {coinHoldings.map((h) => (
+              <div className="product-row" key={h.chainId}>
+                <div className="product-row-icon">
+                  <Icon name={ASSET_CATEGORIES[h.category]?.icon || "coin"} size={16} />
+                </div>
+                <div className="product-row-main">
+                  <span className="holdings-name">
+                    {h.name}
+                    {h.ticker && <span className="ticker-tag">{h.ticker}</span>}
+                  </span>
+                  <span className="holdings-category-tag">
+                    Received via swap or purchase
+                  </span>
+                  {h.chainId && <span className="chain-id-stamp">{h.chainId}</span>}
+                </div>
+                <div className="product-row-stat">
+                  <span className="stat-label">Units</span>
+                  <span className="stat-value">{h.units.toLocaleString()}</span>
+                </div>
+                <div className="product-row-stat">
+                  <span className="stat-label">Value</span>
+                  <span className="stat-value">
+                    {formatCurrency(h.units * h.priceUsd, currency, liveFx)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ---------------- Swap Offers ---------------- */}
       {(offerInbox?.length > 0 || offerOutbox?.length > 0) && (
