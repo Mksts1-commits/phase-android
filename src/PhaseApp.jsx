@@ -2183,7 +2183,7 @@ function AppInner() {
     } catch (e) {
       showToast(e.message || "Couldn't update the offer — please try again");
     }
-  }, [refreshOffers, refreshMyCoins]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshOffers, refreshMyCoins, refreshCoinHoldings]); // eslint-disable-line react-hooks/exhaustive-deps
   // Refresh issued coins whenever the Dashboard opens, so "My Onchained
   // Products" and the soft net worth always reflect the backend.
   useEffect(() => {
@@ -2237,6 +2237,34 @@ function AppInner() {
   const [assets, setAssets] = useState([]); // live directory — populated from the backend only
   const [holdings, setHoldings] = useState([]); // { assetId, units, costBasisUsd }
   const [coinHoldings, setCoinHoldings] = useState([]); // sovereign coins received via swap/buy: { chainId, ticker, name, units, priceUsd }
+  const [txHistory, setTxHistory] = useState([]);
+  const [cashBalances, setCashBalances] = useState({}); // { usd: 0, cad: 0, usdc: 0, ... } funded cash, separate from PHASE coins
+  // Backend settlement ledger (USD) for sovereign-coin trades. Buyer USD is
+  // debited here and issuer USD credited here on every buy — this is the
+  // "issuer gets paid" account. Test rails only for now.
+  const [tradeCashUsd, setTradeCashUsd] = useState(0);
+  const [coinSalesUsd, setCoinSalesUsd] = useState(0); // lifetime earnings as a seller/issuer
+  const refreshTradeBalances = useCallback(async () => {
+    try {
+      const data = await tradeApi.balances();
+      setTradeCashUsd(Number(data?.balances?.USD) || 0);
+      setCoinSalesUsd(Number(data?.lifetimeSalesUsd) || 0);
+    } catch (e) {
+      console.warn("trade balances refresh failed", e);
+    }
+  }, []);
+  useEffect(() => {
+    refreshTradeBalances();
+  }, [refreshTradeBalances]);
+  const [cryptoFunded, setCryptoFunded] = useState(false); // true once crypto balances are detected
+  const [hasIssuedCoin, setHasIssuedCoin] = useState(false); // true once the user mints their own coin
+  const [netWorthHistory, setNetWorthHistory] = useState([]); // [{ t, valueUsd }] for the dashboard trend line
+  const [chatOpen, setChatOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [liveFx, setLiveFx] = useState(BASE_FX);
+  // Sovereign wallet: Ed25519 keypair for signing ledger transactions.
+  // Generated on first launch, persisted as JWK in localStorage.
+  const [sovereignWallet, setSovereignWallet] = useState(null);
   // Refresh sovereign coin holdings: coins the user holds but did NOT issue
   // (received via swap or purchase). Checks on-chain balance per chain.
   const refreshCoinHoldings = useCallback(async () => {
@@ -2279,34 +2307,6 @@ function AppInner() {
       console.warn("coin holdings refresh failed", e);
     }
   }, [sovereignWallet?.address]);
-  const [txHistory, setTxHistory] = useState([]);
-  const [cashBalances, setCashBalances] = useState({}); // { usd: 0, cad: 0, usdc: 0, ... } funded cash, separate from PHASE coins
-  // Backend settlement ledger (USD) for sovereign-coin trades. Buyer USD is
-  // debited here and issuer USD credited here on every buy — this is the
-  // "issuer gets paid" account. Test rails only for now.
-  const [tradeCashUsd, setTradeCashUsd] = useState(0);
-  const [coinSalesUsd, setCoinSalesUsd] = useState(0); // lifetime earnings as a seller/issuer
-  const refreshTradeBalances = useCallback(async () => {
-    try {
-      const data = await tradeApi.balances();
-      setTradeCashUsd(Number(data?.balances?.USD) || 0);
-      setCoinSalesUsd(Number(data?.lifetimeSalesUsd) || 0);
-    } catch (e) {
-      console.warn("trade balances refresh failed", e);
-    }
-  }, []);
-  useEffect(() => {
-    refreshTradeBalances();
-  }, [refreshTradeBalances]);
-  const [cryptoFunded, setCryptoFunded] = useState(false); // true once crypto balances are detected
-  const [hasIssuedCoin, setHasIssuedCoin] = useState(false); // true once the user mints their own coin
-  const [netWorthHistory, setNetWorthHistory] = useState([]); // [{ t, valueUsd }] for the dashboard trend line
-  const [chatOpen, setChatOpen] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [liveFx, setLiveFx] = useState(BASE_FX);
-  // Sovereign wallet: Ed25519 keypair for signing ledger transactions.
-  // Generated on first launch, persisted as JWK in localStorage.
-  const [sovereignWallet, setSovereignWallet] = useState(null);
   useEffect(() => {
     (async () => {
       try {
