@@ -5560,13 +5560,14 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
 
   const dirFiltered = useMemo(() => {
     const q = dirQuery.trim().toLowerCase();
+    const heldChainIds = new Set((coinHoldings || []).map((h) => h.chainId));
     return dirCoins.filter((c) => {
-      if (dirFilter === "mine" && !c.mine) return false;
-      if (dirFilter === "others" && c.mine) return false;
+      if (dirFilter === "mine" && !c.mine && !heldChainIds.has(c.chainId)) return false;
+      if (dirFilter === "others" && (c.mine || heldChainIds.has(c.chainId))) return false;
       if (!q) return true;
       return `${c.name} ${c.ticker} ${c.issuerUserId || ""}`.toLowerCase().includes(q);
     });
-  }, [dirCoins, dirQuery, dirFilter]);
+  }, [dirCoins, dirQuery, dirFilter, coinHoldings]);
 
   const compareCoins = useMemo(
     () => compareIds.map((id) => dirCoins.find((c) => c.chainId === id)).filter(Boolean),
