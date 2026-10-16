@@ -5494,7 +5494,7 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
   const [dirLoading, setDirLoading] = useState(true);
   const [dirError, setDirError] = useState(null);
   const [dirQuery, setDirQuery] = useState("");
-  const [dirFilter, setDirFilter] = useState("all"); // all | mine | others
+  const [dirFilter, setDirFilter] = useState("mine"); // mine | others
   const [myCoinList, setMyCoinList] = useState([]); // this install's own issued coins
   const [detailCoin, setDetailCoin] = useState(null);
   const [compareIds, setCompareIds] = useState([]); // chainIds, max 3
@@ -5561,10 +5561,12 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
 
   const dirFiltered = useMemo(() => {
     const q = dirQuery.trim().toLowerCase();
+    // "My coins" mirrors the dashboard: issued coins + swap-received holdings.
+    // "Others' coins" is the full market — a swap doesn't change total float,
+    // you just hold some of another coin in your wallet.
     const heldChainIds = new Set((coinHoldings || []).map((h) => h.chainId));
     return dirCoins.filter((c) => {
       if (dirFilter === "mine" && !c.mine && !heldChainIds.has(c.chainId)) return false;
-      if (dirFilter === "others" && (c.mine || heldChainIds.has(c.chainId))) return false;
       if (!q) return true;
       return `${c.name} ${c.ticker} ${c.issuerUserId || ""}`.toLowerCase().includes(q);
     });
@@ -5652,7 +5654,6 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
         </div>
         <div className="dir-pills">
           {[
-            ["all", "All live"],
             ["mine", "My coins"],
             ["others", "Others' coins"],
           ].map(([id, label]) => (
