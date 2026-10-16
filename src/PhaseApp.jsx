@@ -6369,18 +6369,16 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
   // Coins the user can offer: issued coins + coins received via swap/purchase
   // (never the target itself). Holdings are merged in so swapped coins are
   // offerable too.
-  const offerableCoins = (() => {
-    const byChain = new Map();
-    (myCoins || []).forEach((c) => {
-      if (c.chainId && c.chainId !== asset.chainId) byChain.set(c.chainId, c);
-    });
-    (coinHoldings || []).forEach((h) => {
-      if (h.chainId && h.chainId !== asset.chainId && !byChain.has(h.chainId)) {
-        byChain.set(h.chainId, h);
-      }
-    });
-    return Array.from(byChain.values());
-  })();
+  const _offerableByChain = new Map();
+  (myCoins || []).forEach((c) => {
+    if (c.chainId && c.chainId !== asset.chainId) _offerableByChain.set(c.chainId, c);
+  });
+  (coinHoldings || []).forEach((h) => {
+    if (h.chainId && h.chainId !== asset.chainId && !_offerableByChain.has(h.chainId)) {
+      _offerableByChain.set(h.chainId, h);
+    }
+  });
+  const offerableCoins = Array.from(_offerableByChain.values());
   const offerCoin = offerableCoins.find((c) => c.chainId === offerCoinId) || null;
   // Spendable balance of one of the user's own coins. availableUnits is the
   // backend-enriched issuer balance looked up at the coin's RECORDED issuer
