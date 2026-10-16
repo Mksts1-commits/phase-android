@@ -2183,7 +2183,7 @@ function AppInner() {
     } catch (e) {
       showToast(e.message || "Couldn't update the offer — please try again");
     }
-  }, [refreshOffers, refreshMyCoins, refreshCoinHoldings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshOffers, refreshMyCoins]); // eslint-disable-line react-hooks/exhaustive-deps
   // Refresh issued coins whenever the Dashboard opens, so "My Onchained
   // Products" and the soft net worth always reflect the backend.
   useEffect(() => {
