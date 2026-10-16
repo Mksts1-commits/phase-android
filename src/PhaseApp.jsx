@@ -5806,6 +5806,7 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
           tradeCashUsd={tradeCashUsd}
           sovereignAddress={sovereignAddress}
           myCoins={myCoinList}
+          coinHoldings={coinHoldings}
           onTopup={onTopup}
           onClose={() => setActiveAsset(null)}
           onInvest={(amount, payCurrency) => {
@@ -6326,7 +6327,7 @@ function FinancialsModal({ asset, currency, liveFx, onClose, onInvest }) {
 
 const QUICK_AMOUNTS = [10, 25, 50, 100, 250];
 
-function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, sovereignAddress, myCoins, onTopup, onClose, onInvest, onInvestSwap }) {
+function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, sovereignAddress, myCoins, coinHoldings, onTopup, onClose, onInvest, onInvestSwap }) {
   const [amount, setAmount] = useState("");
   const [usePhase, setUsePhase] = useState(true);
   const [payCurrency, setPayCurrency] = useState("usd");
@@ -6365,8 +6366,21 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
   const numericRequestUnits = Math.floor(parseFloat(requestUnits) || 0);
   const availableInPayCurrency = isSovereign ? tradeCashUsd || 0 : cashBalances[payCurrency] || 0;
 
-  // Coins this install issued that can be offered (never the target itself).
-  const offerableCoins = (myCoins || []).filter((c) => c.chainId !== asset.chainId);
+  // Coins the user can offer: issued coins + coins received via swap/purchase
+  // (never the target itself). Holdings are merged in so swapped coins are
+  // offerable too.
+  const offerableCoins = (() => {
+    const byChain = new Map();
+    (myCoins || []).forEach((c) => {
+      if (c.chainId && c.chainId !== asset.chainId) byChain.set(c.chainId, c);
+    });
+    (coinHoldings || []).forEach((h) => {
+      if (h.chainId && h.chainId !== asset.chainId && !byChain.has(h.chainId)) {
+        byChain.set(h.chainId, h);
+      }
+    });
+    return Array.from(byChain.values());
+  })();
   const offerCoin = offerableCoins.find((c) => c.chainId === offerCoinId) || null;
   // Spendable balance of one of the user's own coins. availableUnits is the
   // backend-enriched issuer balance looked up at the coin's RECORDED issuer
@@ -6376,8 +6390,9 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
   const availUnitsFor = (c) => {
     if (!c) return 0;
     const enriched = c.availableUnits != null ? Math.floor(Number(c.availableUnits)) : 0;
+    const held = c.units != null ? Math.floor(Number(c.units)) : 0;
     const live = offerBalances[c.chainId] || 0;
-    return Math.max(enriched, live);
+    return Math.max(enriched, held, live);
   };
   const offerBalance = availUnitsFor(offerCoin);
 
@@ -6591,7 +6606,7 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
             ) : (
               <>
                 <p className="field-hint">
-                  Offer units of a coin you issued — the issuer receives your coins,
+                  Offer units of a coin you hold — the issuer receives your coins,
                   you receive {asset.ticker}.
                 </p>
                 <label className="field-label">Your coin</label>
