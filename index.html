@@ -36,6 +36,8 @@
   .btn-secondary { background: #e8f5ec; color: #00a651; }
   .hint { font-size: 13px; color: #8a9a90; margin-top: 12px; line-height: 1.5; }
   .hidden { display: none; }
+  .bonus-counter { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8f5ec; font-size: 14px; color: #5a6b60; }
+  .bonus-counter strong { color: #00a651; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -88,6 +90,22 @@
   <p>Your agent can issue its own blockchain without the app. Copy this prompt, paste it into ChatGPT, Claude, or any AI:</p>
   <div id="agent-prompt-text" style="background:#f4f4f4;border-radius:8px;padding:12px;font-size:13px;margin:12px 0;white-space:pre-wrap">I want to create my own cryptocurrency on Phase. Go to https://github.com/Mksts1-commits/phase-backend/blob/main/AGENT.md and follow the 6-step issuance flow: signup with my email, generate an Ed25519 wallet locally, create a draft, show me the Issuer Agreement for my explicit acceptance, then sign and mint. Never sign anything without my approval.</div>
   <button id="copy-prompt-btn" class="btn btn-secondary" onclick="copyAgentPrompt()">Copy prompt</button>
+  <div class="bonus-counter" id="bonus-counter">Loading bonus availability…</div>
 </div>
+<script>
+  fetch('https://phase-backend.onrender.com/api/v1/bonus-pool')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var p = d.pool || {};
+      var claimed = (p.totalSupply || 10000) - (p.remaining || 0);
+      var total = Math.max(1, Math.round((p.totalSupply || 10000000) / (p.bonusPerSignup || 1000)));
+      document.getElementById('bonus-counter').innerHTML =
+        '🎁 <strong>' + claimed.toLocaleString() + ' of ' + total.toLocaleString() + '</strong> signup bonuses claimed — 1,000 free PHASE for new users.';
+    })
+    .catch(function(){
+      document.getElementById('bonus-counter').innerHTML =
+        '🎁 <strong>1,000 free PHASE</strong> for new signups — while the bonus pool lasts.';
+    });
+</script>
 </body>
 </html>
