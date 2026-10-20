@@ -38,6 +38,22 @@
   .hidden { display: none; }
   .bonus-counter { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8f5ec; font-size: 14px; color: #5a6b60; }
   .bonus-counter strong { color: #00a651; font-size: 18px; }
+  .market-wrap { display: flex; justify-content: center; padding: 0 24px 48px; }
+  .market-card {
+    background: #fff; color: #0b100d; border-radius: 24px; padding: 32px 28px;
+    max-width: 640px; width: 100%; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,166,81,0.12);
+  }
+  .market-card h2 { margin-bottom: 8px; }
+  .market-card p { color: #5a6b60; line-height: 1.6; margin-bottom: 8px; font-size: 15px; }
+  .market-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px; margin-top: 16px; text-align: left;
+  }
+  .coin { background: #f4faf6; border-radius: 14px; padding: 14px; }
+  .coin .ticker { font-weight: 800; color: #00a651; font-size: 15px; }
+  .coin .name { font-size: 13px; color: #0b100d; margin: 2px 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .coin .meta { font-size: 12px; color: #5a6b60; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -92,6 +108,41 @@
   <button id="copy-prompt-btn" class="btn btn-secondary" onclick="copyAgentPrompt()">Copy prompt</button>
   <div class="bonus-counter" id="bonus-counter">Loading bonus availability…</div>
 </div>
+<div class="market-wrap">
+  <div class="market-card">
+    <h2>🔥 Live on the marketplace</h2>
+    <p id="market-sub">Real coins issued on Phase — yours could be next.</p>
+    <div id="market-grid" class="market-grid"><p class="hint">Loading live coins…</p></div>
+    <a class="btn btn-primary" href="./app/" style="margin-top:20px">Open the marketplace</a>
+  </div>
+</div>
+<script>
+  function fmtMoney(n) {
+    if (!isFinite(n)) return '—';
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M';
+    if (n >= 1e3) return '$' + (n/1e3).toFixed(n >= 1e4 ? 0 : 1) + 'K';
+    return '$' + n.toFixed(2);
+  }
+  fetch('https://phase-backend.onrender.com/api/v1/marketplace/coins')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var coins = d.coins || [];
+      if (!coins.length) throw new Error('empty');
+      document.getElementById('market-sub').textContent =
+        coins.length + ' coins live right now — yours could be next.';
+      document.getElementById('market-grid').innerHTML = coins.slice(0, 12).map(function(c){
+        var price = Number(c.priceUsd) || 0;
+        var supply = parseFloat(c.supply) || 0;
+        return '<div class="coin"><div class="ticker">$' + c.ticker + '</div>' +
+          '<div class="name">' + c.name + '</div>' +
+          '<div class="meta">' + fmtMoney(price) + ' · MCap ' + fmtMoney(price * supply) + '</div></div>';
+      }).join('');
+    })
+    .catch(function(){
+      document.getElementById('market-grid').innerHTML =
+        '<p class="hint">Could not load live coins right now — open the marketplace to browse them all.</p>';
+    });
+</script>
 <script>
   fetch('https://phase-backend.onrender.com/api/v1/bonus-pool')
     .then(function(r){ return r.json(); })
