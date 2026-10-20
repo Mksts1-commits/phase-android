@@ -110,8 +110,8 @@
 </div>
 <div class="market-wrap">
   <div class="market-card">
-    <h2>🔥 Live on the marketplace</h2>
-    <p id="market-sub">Real coins issued on Phase — yours could be next.</p>
+    <h2>🚀 Marketplace just went live</h2>
+    <p id="market-sub">Fresh coins hitting the market — get in early. Yours could be next.</p>
     <div id="market-grid" class="market-grid"><p class="hint">Loading live coins…</p></div>
     <a class="btn btn-primary" href="./app/" style="margin-top:20px">Open the marketplace</a>
   </div>
@@ -129,7 +129,7 @@
       var coins = d.coins || [];
       if (!coins.length) throw new Error('empty');
       document.getElementById('market-sub').textContent =
-        coins.length + ' coins live right now — yours could be next.';
+        coins.length + ' coins already live — get in early.';
       document.getElementById('market-grid').innerHTML = coins.slice(0, 12).map(function(c){
         var price = Number(c.priceUsd) || 0;
         var supply = parseFloat(c.supply) || 0;
