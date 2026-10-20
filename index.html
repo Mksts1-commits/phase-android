@@ -129,7 +129,7 @@
       var coins = d.coins || [];
       if (!coins.length) throw new Error('empty');
       document.getElementById('market-sub').textContent =
-        coins.length + ' coins already live — get in early.';
+        coins.length + ' coins just went live';
       document.getElementById('market-grid').innerHTML = coins.slice(0, 12).map(function(c){
         var price = Number(c.priceUsd) || 0;
         var supply = parseFloat(c.supply) || 0;
