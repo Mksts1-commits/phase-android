@@ -254,7 +254,11 @@
       <div class="field"><label>Your ownership</label>
         <div class="own-toggle" id="wz-own-toggle">
           <button type="button" class="own-btn own-active" data-own="95">95% mine</button>
-          <button type="button" class="own-btn" data-own="50">50 / 50</button>
+          <button type="button" class="own-btn" data-own="custom">Custom</button>
+        </div>
+        <div id="wz-own-custom-wrap" class="hidden" style="margin-top:10px">
+          <label style="display:block;font-size:13px;font-weight:700;margin-bottom:6px">Your share (%)</label>
+          <input id="wz-own-custom" type="number" min="1" max="99" value="80" inputmode="numeric" style="width:100%;padding:13px 14px;border-radius:12px;font-size:15px;border:1.5px solid #dcebe1;background:#fbfffc">
         </div>
       </div>
       <div class="field"><label>Your name <span class="req">*</span></label><input id="wz-legal" maxlength="80" placeholder="For the issuer agreement"></div>
@@ -381,15 +385,32 @@
     return 'link';
   }
 
-  // --- Ownership toggle (default 95% mine) ---
+  // --- Ownership toggle (default 95% mine, or custom) ---
   state.equityRetained = 95;
+  function wzReadCustomOwn(){
+    var v = parseInt(document.getElementById('wz-own-custom').value, 10);
+    if (!Number.isInteger(v) || v < 1 || v > 99) return null;
+    return v;
+  }
   document.getElementById('wz-own-toggle').addEventListener('click', function(e){
     var b = e.target.closest('.own-btn');
     if (!b) return;
     var btns = document.querySelectorAll('#wz-own-toggle .own-btn');
     for (var i = 0; i < btns.length; i++) btns[i].classList.remove('own-active');
     b.classList.add('own-active');
-    state.equityRetained = parseInt(b.getAttribute('data-own'), 10);
+    var mode = b.getAttribute('data-own');
+    if (mode === 'custom'){
+      show('wz-own-custom-wrap');
+      var v = wzReadCustomOwn();
+      state.equityRetained = (v === null) ? 80 : v;
+    } else {
+      hide('wz-own-custom-wrap');
+      state.equityRetained = parseInt(mode, 10);
+    }
+  });
+  document.getElementById('wz-own-custom').addEventListener('input', function(){
+    var v = wzReadCustomOwn();
+    if (v !== null) state.equityRetained = v;
   });
 
   // --- Live price / market-cap / supply readout ---
@@ -430,6 +451,11 @@
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('wz-err1', 'Enter a valid email address.');
     var econ = wzEcon();
     if (!econ) return err('wz-err1', 'Enter a valid price and market cap.');
+    if (!document.getElementById('wz-own-custom-wrap').classList.contains('hidden')){
+      var co = wzReadCustomOwn();
+      if (co === null) return err('wz-err1', 'Ownership must be between 1% and 99%.');
+      state.equityRetained = co;
+    }
     if (econ.mcap > 500000000) return err('wz-err1', 'Market cap can’t exceed $500M at issuance.');
     if (econ.supply < 1000) return err('wz-err1', 'That price/market cap gives fewer than 1,000 coins — raise the market cap or lower the price.');
 
