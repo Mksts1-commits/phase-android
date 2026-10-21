@@ -54,6 +54,64 @@
   .coin .ticker { font-weight: 800; color: #00a651; font-size: 15px; }
   .coin .name { font-size: 13px; color: #0b100d; margin: 2px 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .coin .meta { font-size: 12px; color: #5a6b60; line-height: 1.5; }
+  .coin-cta-wrap { display: flex; flex-direction: column; align-items: center; padding: 4px 24px 28px; }
+  .btn-coin {
+    background: linear-gradient(135deg, #00c853, #00a651 60%, #7b5e00);
+    color: #fff; font-size: 19px; padding: 18px 40px; border-radius: 999px;
+    border: none; cursor: pointer; font-weight: 800;
+    box-shadow: 0 10px 30px rgba(0,200,83,0.35);
+    max-width: 420px; width: 100%;
+  }
+  .btn-coin:active { transform: scale(0.98); }
+  #wizard-overlay {
+    position: fixed; inset: 0; background: rgba(4,8,6,0.72); z-index: 50;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 24px 16px; overflow-y: auto;
+  }
+  .wizard {
+    background: #fff; color: #0b100d; border-radius: 24px; padding: 28px 24px;
+    max-width: 460px; width: 100%; position: relative; margin: auto 0;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4); text-align: left;
+  }
+  .wizard h2 { text-align: center; margin-bottom: 6px; }
+  .wizard .sub { text-align: center; color: #5a6b60; font-size: 14px; margin-bottom: 18px; line-height: 1.5; }
+  .wizard-close {
+    position: absolute; top: 12px; right: 16px; border: none; background: none;
+    font-size: 26px; cursor: pointer; color: #8a9a90; line-height: 1;
+  }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 700; color: #0b100d; margin-bottom: 6px; }
+  .field input, .field textarea {
+    width: 100%; padding: 13px 14px; border-radius: 12px; font-size: 15px;
+    border: 1.5px solid #dcebe1; font-family: inherit; color: #0b100d; background: #fbfffc;
+  }
+  .field input:focus, .field textarea:focus { outline: none; border-color: #00a651; }
+  .field .req { color: #00a651; }
+  .wz-err {
+    display: none; background: #fdecea; color: #b3261e; border-radius: 12px;
+    padding: 12px 14px; font-size: 13px; margin-bottom: 14px; line-height: 1.5;
+  }
+  .wz-progress { text-align: center; padding: 24px 0; color: #5a6b60; font-size: 15px; line-height: 2; }
+  .spinner {
+    width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 50%;
+    border: 4px solid #e8f5ec; border-top-color: #00a651;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .agreement-box {
+    background: #f4f4f4; border-radius: 12px; padding: 14px; font-size: 12.5px;
+    max-height: 260px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6;
+    margin-bottom: 16px; color: #333;
+  }
+  .pw-box {
+    background: #fff8e1; border: 1.5px dashed #c9a227; border-radius: 12px;
+    padding: 14px; font-size: 14px; margin: 14px 0; line-height: 1.6; word-break: break-all;
+  }
+  .pw-box code { font-size: 17px; font-weight: 800; color: #0b100d; }
+  .boom { text-align: center; padding: 8px 0; }
+  .boom .big { font-size: 52px; margin-bottom: 8px; }
+  .boom h2 { margin-bottom: 8px; }
+  .boom p { color: #5a6b60; font-size: 14px; line-height: 1.6; margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -80,6 +138,10 @@
       <a class="btn btn-secondary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
     </div>
   </div>
+</div>
+<div class="coin-cta-wrap">
+  <button id="want-coin-btn" class="btn-coin">🪙 I want my coin</button>
+  <p class="hint">Mint your own coin in about 2 minutes — no app download needed.</p>
 </div>
 <script>
   var ua = navigator.userAgent || '';
@@ -157,6 +219,237 @@
       document.getElementById('bonus-counter').innerHTML =
         '🎁 <strong>1,000 free PHASE</strong> for new signups — while the bonus pool lasts.';
     });
+</script>
+
+<!-- "I want my coin" express issuance wizard -->
+<div id="wizard-overlay" class="hidden" style="display:none">
+  <div class="wizard">
+    <button class="wizard-close" id="wz-close" aria-label="Close">×</button>
+
+    <div id="wz-step1">
+      <h2>🪙 I want my coin</h2>
+      <p class="sub">Fill this in — we create your account, you sign, your coin mints. About 2 minutes.</p>
+      <div class="wz-err" id="wz-err1"></div>
+      <div class="field"><label>Coin name <span class="req">*</span></label><input id="wz-name" maxlength="60" placeholder="e.g. Sunset Beats"></div>
+      <div class="field"><label>Ticker <span class="req">*</span></label><input id="wz-ticker" maxlength="10" placeholder="e.g. SUNSET" style="text-transform:uppercase"></div>
+      <div class="field"><label>Description <span class="req">*</span></label><textarea id="wz-desc" rows="2" maxlength="280" placeholder="What is your coin about?"></textarea></div>
+      <div class="field"><label>YouTube or TikTok link <span class="req">*</span></label><input id="wz-social" inputmode="url" placeholder="https://tiktok.com/@you"></div>
+      <div class="field"><label>Your name <span class="req">*</span></label><input id="wz-legal" maxlength="80" placeholder="For the issuer agreement"></div>
+      <div class="field"><label>Email <span class="req">*</span></label><input id="wz-email" type="email" inputmode="email" placeholder="you@example.com"></div>
+      <button class="btn btn-primary" id="wz-next1">Continue →</button>
+      <p class="hint" style="text-align:center">Your Phase account is created automatically — no password to invent.</p>
+    </div>
+
+    <div id="wz-step2" class="hidden">
+      <h2>Setting things up…</h2>
+      <div class="wz-progress"><div class="spinner"></div><span id="wz-status">Creating your account…</span></div>
+      <div class="wz-err" id="wz-err2"></div>
+    </div>
+
+    <div id="wz-step3" class="hidden">
+      <h2>Sign the issuer agreement</h2>
+      <p class="sub">Read it, then sign to mint <strong id="wz-ag-ticker"></strong>.</p>
+      <div class="agreement-box" id="wz-agreement">Loading agreement…</div>
+      <div class="wz-err" id="wz-err3"></div>
+      <button class="btn btn-primary" id="wz-sign">I agree — sign &amp; mint my coin 🚀</button>
+      <p class="hint" style="text-align:center">A human signs every issuance. That's the rule.</p>
+    </div>
+
+    <div id="wz-step4" class="hidden">
+      <div class="boom">
+        <div class="big">🎉</div>
+        <h2 id="wz-boom-title">Your coin is live!</h2>
+        <p id="wz-boom-sub"></p>
+        <div class="pw-box">🔑 Your Phase account was created automatically.<br>Your password (shown once — save it):<br><code id="wz-pw"></code></div>
+        <a class="btn btn-primary" href="./app/">Checkout marketplace →</a>
+        <p class="hint">Log in with your email + the password above to manage your coin.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var API = 'https://phase-backend.onrender.com/api/v1';
+  var overlay = document.getElementById('wizard-overlay');
+  var state = {};
+
+  function show(id){ document.getElementById(id).classList.remove('hidden'); }
+  function hide(id){ document.getElementById(id).classList.add('hidden'); }
+  function err(id, msg){
+    var e = document.getElementById(id);
+    if (!msg){ e.style.display = 'none'; e.textContent = ''; return; }
+    e.textContent = msg; e.style.display = 'block';
+  }
+  function openWizard(){
+    overlay.style.display = 'flex';
+    hide('wz-step2'); hide('wz-step3'); hide('wz-step4'); show('wz-step1');
+    err('wz-err1'); err('wz-err2'); err('wz-err3');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeWizard(){
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  document.getElementById('want-coin-btn').addEventListener('click', openWizard);
+  document.getElementById('wz-close').addEventListener('click', closeWizard);
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) closeWizard(); });
+
+  function genPassword(){
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    var out = '';
+    var rnd = new Uint32Array(16);
+    crypto.getRandomValues(rnd);
+    for (var i = 0; i < 16; i++) out += chars[rnd[i] % chars.length];
+    return out;
+  }
+
+  // --- Web Crypto Ed25519 wallet (same scheme as the Phase app) ---
+  var B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58encode(buf){
+    var zeros = 0;
+    while (zeros < buf.length && buf[zeros] === 0) zeros++;
+    var num = 0n;
+    for (var i = 0; i < buf.length; i++) num = num * 256n + BigInt(buf[i]);
+    var out = '';
+    while (num > 0n){ out = B58[Number(num % 58n)] + out; num = num / 58n; }
+    return '1'.repeat(zeros) + out;
+  }
+  async function generateWallet(){
+    var kp = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+    var rawPub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+    var hex = Array.prototype.map.call(rawPub, function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+    return { address: 'ph1' + b58encode(rawPub), pubkeyHex: hex };
+  }
+
+  async function api(path, opts){
+    opts = opts || {};
+    var headers = { 'Content-Type': 'application/json' };
+    if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+    if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
+    var res = await fetch(API + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok){
+      var msg = (data && (data.message || data.error)) || ('Request failed (' + res.status + ')');
+      var error = new Error(msg);
+      error.status = res.status; error.code = data && data.error;
+      throw error;
+    }
+    return data;
+  }
+
+  function detectPlatform(url){
+    var u = url.toLowerCase();
+    if (u.indexOf('tiktok') !== -1) return 'tiktok';
+    if (u.indexOf('youtube') !== -1 || u.indexOf('youtu.be') !== -1) return 'youtube';
+    return 'link';
+  }
+
+  document.getElementById('wz-next1').addEventListener('click', async function(){
+    err('wz-err1');
+    var name = document.getElementById('wz-name').value.trim();
+    var ticker = document.getElementById('wz-ticker').value.trim().toUpperCase();
+    var desc = document.getElementById('wz-desc').value.trim();
+    var social = document.getElementById('wz-social').value.trim();
+    var legal = document.getElementById('wz-legal').value.trim();
+    var email = document.getElementById('wz-email').value.trim().toLowerCase();
+    if (name.length < 1) return err('wz-err1', 'Give your coin a name.');
+    if (!/^[A-Z0-9]{2,10}$/.test(ticker)) return err('wz-err1', 'Ticker must be 2–10 letters/numbers (e.g. SUNSET).');
+    if (desc.length < 1) return err('wz-err1', 'Add a short description.');
+    if (!/^https?:\/\/.+\..+/.test(social)) return err('wz-err1', 'Paste your YouTube or TikTok link (starting with https://).');
+    if (legal.length < 2) return err('wz-err1', 'Enter your name for the issuer agreement.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('wz-err1', 'Enter a valid email address.');
+
+    state.form = { name: name, ticker: ticker, desc: desc, social: social, legal: legal, email: email };
+    hide('wz-step1'); show('wz-step2'); err('wz-err2');
+    var status = document.getElementById('wz-status');
+
+    try {
+      // 1. Auto-create account
+      status.textContent = 'Creating your account…';
+      var password = genPassword();
+      var signup;
+      try {
+        signup = await api('/auth/signup', { method: 'POST', body: { email: email, password: password, name: legal } });
+      } catch (e) {
+        if (e.code === 'account_exists') throw new Error('That email already has a Phase account — please use a different email, or log in via the web app.');
+        throw e;
+      }
+      state.token = signup.token;
+      state.userId = signup.userId;
+      state.password = password;
+
+      // 2. Wallet
+      status.textContent = 'Generating your wallet…';
+      var wallet = await generateWallet();
+      state.issuerAddress = wallet.address;
+
+      // 3. Draft
+      status.textContent = 'Drafting your coin…';
+      var idem = 'web-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      var draft = await api('/issuance/draft', {
+        method: 'POST',
+        idempotencyKey: idem,
+        body: {
+          userId: state.userId,
+          name: name,
+          ticker: ticker,
+          category: 'Creator',
+          tagline: desc,
+          valueThesis: desc,
+          equityPublic: 50,
+          equityRetained: 50,
+          socialProfiles: [{ platform: detectPlatform(social), url: social }],
+          priceUsd: 1
+        }
+      });
+      state.draftId = draft.draftId;
+
+      // 4. Agreement
+      status.textContent = 'Loading the issuer agreement…';
+      var ag = await api('/issuance/agreement?draftId=' + encodeURIComponent(state.draftId));
+      document.getElementById('wz-agreement').textContent = ag.agreementText || 'Agreement unavailable.';
+      document.getElementById('wz-ag-ticker').textContent = '$' + ticker;
+      hide('wz-step2'); show('wz-step3');
+    } catch (e) {
+      err('wz-err2', e.message || 'Something went wrong — please try again.');
+    }
+  });
+
+  document.getElementById('wz-sign').addEventListener('click', async function(){
+    err('wz-err3');
+    var btn = document.getElementById('wz-sign');
+    btn.disabled = true; btn.textContent = 'Minting…';
+    try {
+      await api('/issuance/sign', {
+        method: 'POST',
+        body: { userId: state.userId, draftId: state.draftId, legalName: state.form.legal, accepted: true }
+      });
+      var idem = 'mint-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      var mint = await api('/issuance/mint', {
+        method: 'POST',
+        idempotencyKey: idem,
+        body: { userId: state.userId, draftId: state.draftId, issuerAddress: state.issuerAddress, totalShares: 100000 }
+      });
+      var coin = mint.coin || {};
+      document.getElementById('wz-boom-title').textContent = '$' + (coin.ticker || state.form.ticker) + ' is live! 🎉';
+      document.getElementById('wz-boom-sub').textContent =
+        (coin.name || state.form.name) + ' minted on its own chain — ' +
+        Number(coin.supply || 100000).toLocaleString() + ' coins at $' + (coin.priceUsd || 1) + '.';
+      document.getElementById('wz-pw').textContent = state.password;
+      hide('wz-step3'); show('wz-step4');
+    } catch (e) {
+      err('wz-err3', e.message || 'Minting failed — please try again.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'I agree — sign & mint my coin 🚀';
+    }
+  });
+})();
 </script>
 </body>
 </html>
