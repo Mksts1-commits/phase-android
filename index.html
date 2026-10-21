@@ -120,55 +120,9 @@
     <source src="./hero.mp4" type="video/mp4">
   </video>
 </div>
-<div class="card-wrap">
-  <div class="card">
-    <div id="ios-msg" class="hidden">
-      <p>Tap below to open Phase in your browser. For the full experience, tap <strong>Share → Add to Home Screen</strong>.</p>
-      <a class="btn btn-primary" href="./app/">Open Phase Web App</a>
-      <p class="hint">The native iPhone app is coming to the App Store soon.</p>
-    </div>
-    <div id="android-msg" class="hidden">
-      <p>Get Phase for Android — download the app, or use it right in your browser.</p>
-      <a class="btn btn-primary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
-      <a class="btn btn-secondary" href="./app/">Open Web App Instead</a>
-    </div>
-    <div id="desktop-msg" class="hidden">
-      <p>Choose your platform:</p>
-      <a class="btn btn-primary" href="./app/">Open Web App</a>
-      <a class="btn btn-secondary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
-    </div>
-  </div>
-</div>
-<div class="coin-cta-wrap">
+<div class="coin-cta-wrap" style="padding-top:28px">
   <button id="want-coin-btn" class="btn-coin">🪙 I want my coin</button>
   <p class="hint">Mint your own coin in about 2 minutes — no app download needed.</p>
-</div>
-<script>
-  var ua = navigator.userAgent || '';
-  var isIOS = /iPhone|iPad|iPod/i.test(ua);
-  var isAndroid = /Android/i.test(ua);
-  if (isIOS) {
-    document.getElementById('ios-msg').classList.remove('hidden');
-  } else if (isAndroid) {
-    document.getElementById('android-msg').classList.remove('hidden');
-  } else {
-    document.getElementById('desktop-msg').classList.remove('hidden');
-  }
-  function copyAgentPrompt() {
-    var t = document.getElementById('agent-prompt-text').innerText;
-    navigator.clipboard.writeText(t).then(function() {
-      var b = document.getElementById('copy-prompt-btn');
-      b.textContent = 'Copied!';
-      setTimeout(function(){ b.textContent = 'Copy prompt'; }, 2000);
-    });
-  }
-</script>
-<div class="card" style="margin-top:24px">
-  <h2>🤖 Send your AI agent</h2>
-  <p>Your agent can issue its own blockchain without the app. Copy this prompt, paste it into ChatGPT, Claude, or any AI:</p>
-  <div id="agent-prompt-text" style="background:#f4f4f4;border-radius:8px;padding:12px;font-size:13px;margin:12px 0;white-space:pre-wrap">I want to create my own cryptocurrency on Phase. Go to https://github.com/Mksts1-commits/phase-backend/blob/main/AGENT.md and follow the 6-step issuance flow: signup with my email, generate an Ed25519 wallet locally, create a draft, show me the Issuer Agreement for my explicit acceptance, then sign and mint. Never sign anything without my approval.</div>
-  <button id="copy-prompt-btn" class="btn btn-secondary" onclick="copyAgentPrompt()">Copy prompt</button>
-  <div class="bonus-counter" id="bonus-counter">Loading bonus availability…</div>
 </div>
 <div class="market-wrap">
   <div class="market-card">
@@ -205,6 +159,52 @@
         '<p class="hint">Could not load live coins right now — open the marketplace to browse them all.</p>';
     });
 </script>
+<div class="card-wrap">
+  <div class="card">
+    <div id="ios-msg" class="hidden">
+      <p>Tap below to open Phase in your browser. For the full experience, tap <strong>Share → Add to Home Screen</strong>.</p>
+      <a class="btn btn-primary" href="./app/">Open Phase Web App</a>
+      <p class="hint">The native iPhone app is coming to the App Store soon.</p>
+    </div>
+    <div id="android-msg" class="hidden">
+      <p>Get Phase for Android — download the app, or use it right in your browser.</p>
+      <a class="btn btn-primary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
+      <a class="btn btn-secondary" href="./app/">Open Web App Instead</a>
+    </div>
+    <div id="desktop-msg" class="hidden">
+      <p>Choose your platform:</p>
+      <a class="btn btn-primary" href="./app/">Open Web App</a>
+      <a class="btn btn-secondary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
+    </div>
+  </div>
+</div>
+<script>
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  if (isIOS) {
+    document.getElementById('ios-msg').classList.remove('hidden');
+  } else if (isAndroid) {
+    document.getElementById('android-msg').classList.remove('hidden');
+  } else {
+    document.getElementById('desktop-msg').classList.remove('hidden');
+  }
+  function copyAgentPrompt() {
+    var t = document.getElementById('agent-prompt-text').innerText;
+    navigator.clipboard.writeText(t).then(function() {
+      var b = document.getElementById('copy-prompt-btn');
+      b.textContent = 'Copied!';
+      setTimeout(function(){ b.textContent = 'Copy prompt'; }, 2000);
+    });
+  }
+</script>
+<div class="card" style="margin-top:24px">
+  <h2>🤖 Send your AI agent</h2>
+  <p>Your agent can issue its own blockchain without the app. Copy this prompt, paste it into ChatGPT, Claude, or any AI:</p>
+  <div id="agent-prompt-text" style="background:#f4f4f4;border-radius:8px;padding:12px;font-size:13px;margin:12px 0;white-space:pre-wrap">I want to create my own cryptocurrency on Phase. Go to https://github.com/Mksts1-commits/phase-backend/blob/main/AGENT.md and follow the 6-step issuance flow: signup with my email, generate an Ed25519 wallet locally, create a draft, show me the Issuer Agreement for my explicit acceptance, then sign and mint. Never sign anything without my approval.</div>
+  <button id="copy-prompt-btn" class="btn btn-secondary" onclick="copyAgentPrompt()">Copy prompt</button>
+  <div class="bonus-counter" id="bonus-counter">Loading bonus availability…</div>
+</div>
 <script>
   fetch('https://phase-backend.onrender.com/api/v1/bonus-pool')
     .then(function(r){ return r.json(); })
