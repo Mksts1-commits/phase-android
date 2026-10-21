@@ -108,6 +108,12 @@
     padding: 14px; font-size: 14px; margin: 14px 0; line-height: 1.6; word-break: break-all;
   }
   .pw-box code { font-size: 17px; font-weight: 800; color: #0b100d; }
+  .pw-box .urgent { color: #b3261e; font-weight: 800; }
+  #wz-matrix { width: 100%; border-radius: 12px; background: #040a06; display: block; }
+  .dash-howto {
+    background: #f4faf6; border-radius: 12px; padding: 14px; font-size: 13.5px;
+    margin: 12px 0; line-height: 1.7; color: #0b100d; text-align: left;
+  }
   .boom { text-align: center; padding: 8px 0; }
   .boom .big { font-size: 52px; margin-bottom: 8px; }
   .boom h2 { margin-bottom: 8px; }
@@ -247,12 +253,19 @@
     </div>
 
     <div id="wz-step3" class="hidden">
-      <h2>Sign the issuer agreement</h2>
-      <p class="sub">Read it, then sign to mint <strong id="wz-ag-ticker"></strong>.</p>
-      <div class="agreement-box" id="wz-agreement">Loading agreement…</div>
-      <div class="wz-err" id="wz-err3"></div>
-      <button class="btn btn-primary" id="wz-sign">I agree — sign &amp; mint my coin 🚀</button>
-      <p class="hint" style="text-align:center">A human signs every issuance. That's the rule.</p>
+      <div id="wz-agree-view">
+        <h2>Sign the issuer agreement</h2>
+        <p class="sub">Read it, then sign to mint <strong id="wz-ag-ticker"></strong>.</p>
+        <div class="agreement-box" id="wz-agreement">Loading agreement…</div>
+        <div class="wz-err" id="wz-err3"></div>
+        <button class="btn btn-primary" id="wz-sign">I agree — sign &amp; mint my coin 🚀</button>
+        <p class="hint" style="text-align:center">A human signs every issuance. That's the rule.</p>
+      </div>
+      <div id="wz-mint-view" class="hidden" style="text-align:center">
+        <h2>Minting…</h2>
+        <canvas id="wz-matrix" width="440" height="280"></canvas>
+        <p class="sub" id="wz-matrix-status" style="margin-top:12px">Forging your coin on its own chain…</p>
+      </div>
     </div>
 
     <div id="wz-step4" class="hidden">
@@ -260,9 +273,9 @@
         <div class="big">🎉</div>
         <h2 id="wz-boom-title">Your coin is live!</h2>
         <p id="wz-boom-sub"></p>
-        <div class="pw-box">🔑 Your Phase account was created automatically.<br>Your password (shown once — save it):<br><code id="wz-pw"></code></div>
+        <div class="pw-box"><span class="urgent">⚠️ Screenshot this right now</span> — shown once, we can't recover it.<br>Your Phase account password:<br><code id="wz-pw"></code><br><button id="wz-copy-pw" class="btn btn-secondary" style="margin-top:10px">Copy password</button></div>
+        <div class="dash-howto">📊 <strong>See your dashboard:</strong><br>1. Tap "Checkout marketplace" below to open the web app<br>2. Log in with your email + the password above<br>3. Your coin, balance &amp; 1,000 free PHASE are waiting</div>
         <a class="btn btn-primary" href="./app/">Checkout marketplace →</a>
-        <p class="hint">Log in with your email + the password above to manage your coin.</p>
       </div>
     </div>
   </div>
@@ -284,6 +297,7 @@
   function openWizard(){
     overlay.style.display = 'flex';
     hide('wz-step2'); hide('wz-step3'); hide('wz-step4'); show('wz-step1');
+    show('wz-agree-view'); hide('wz-mint-view');
     err('wz-err1'); err('wz-err2'); err('wz-err3');
     document.body.style.overflow = 'hidden';
   }
@@ -423,13 +437,16 @@
 
   document.getElementById('wz-sign').addEventListener('click', async function(){
     err('wz-err3');
-    var btn = document.getElementById('wz-sign');
-    btn.disabled = true; btn.textContent = 'Minting…';
+    hide('wz-agree-view'); show('wz-mint-view');
+    var matrixTimer = startMatrix();
+    var statusEl = document.getElementById('wz-matrix-status');
     try {
+      statusEl.textContent = 'Recording your signature…';
       await api('/issuance/sign', {
         method: 'POST',
         body: { userId: state.userId, draftId: state.draftId, legalName: state.form.legal, accepted: true }
       });
+      statusEl.textContent = 'Forging your coin on its own chain…';
       var idem = 'mint-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
       var mint = await api('/issuance/mint', {
         method: 'POST',
@@ -444,11 +461,46 @@
       document.getElementById('wz-pw').textContent = state.password;
       hide('wz-step3'); show('wz-step4');
     } catch (e) {
+      hide('wz-mint-view'); show('wz-agree-view');
       err('wz-err3', e.message || 'Minting failed — please try again.');
     } finally {
-      btn.disabled = false; btn.textContent = 'I agree — sign & mint my coin 🚀';
+      clearInterval(matrixTimer);
     }
   });
+
+  document.getElementById('wz-copy-pw').addEventListener('click', function(){
+    var b = document.getElementById('wz-copy-pw');
+    navigator.clipboard.writeText(state.password || '').then(function(){
+      b.textContent = 'Copied!';
+      setTimeout(function(){ b.textContent = 'Copy password'; }, 2000);
+    });
+  });
+
+  // --- Matrix rain while minting ---
+  function startMatrix(){
+    var c = document.getElementById('wz-matrix');
+    if (!c) return 0;
+    var ctx = c.getContext('2d');
+    var w = c.width, h = c.height;
+    var cols = Math.floor(w / 16);
+    var drops = [];
+    for (var i = 0; i < cols; i++) drops[i] = Math.random() * -40;
+    var chars = '01Φ$#*+=<>/アイ';
+    ctx.fillStyle = '#040a06';
+    ctx.fillRect(0, 0, w, h);
+    return setInterval(function(){
+      ctx.fillStyle = 'rgba(4,10,6,0.09)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#00e676';
+      ctx.font = '15px monospace';
+      for (var j = 0; j < cols; j++){
+        var ch = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(ch, j * 16, drops[j] * 16);
+        if (drops[j] * 16 > h && Math.random() > 0.976) drops[j] = 0;
+        drops[j]++;
+      }
+    }, 55);
+  }
 })();
 </script>
 </body>
