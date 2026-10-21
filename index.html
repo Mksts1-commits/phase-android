@@ -114,6 +114,14 @@
     background: #f4faf6; border-radius: 12px; padding: 14px; font-size: 13.5px;
     margin: 12px 0; line-height: 1.7; color: #0b100d; text-align: left;
   }
+  .own-toggle { display: flex; gap: 8px; }
+  .own-btn {
+    flex: 1; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 700;
+    border: 1.5px solid #dcebe1; background: #fbfffc; color: #5a6b60; cursor: pointer;
+  }
+  .own-btn.own-active { border-color: #00a651; background: #e8f5ec; color: #00a651; }
+  .mcap-readout { text-align: center; font-size: 13px; color: #5a6b60; margin: -6px 0 14px; line-height: 1.6; }
+  .mcap-readout strong { color: #00a651; }
   .boom { text-align: center; padding: 8px 0; }
   .boom .big { font-size: 52px; margin-bottom: 8px; }
   .boom h2 { margin-bottom: 8px; }
@@ -127,7 +135,7 @@
   </video>
 </div>
 <div class="coin-cta-wrap" style="padding-top:28px">
-  <button id="want-coin-btn" class="btn-coin">🪙 I want my coin</button>
+  <button id="want-coin-btn" class="btn-coin">🪙 Mint my coin</button>
   <p class="hint">Mint your own coin in about 2 minutes — no app download needed.</p>
 </div>
 <div class="market-wrap">
@@ -233,13 +241,22 @@
     <button class="wizard-close" id="wz-close" aria-label="Close">×</button>
 
     <div id="wz-step1">
-      <h2>🪙 I want my coin</h2>
+      <h2>🪙 Mint my coin</h2>
       <p class="sub">Fill this in — we create your account, you sign, your coin mints. About 2 minutes.</p>
       <div class="wz-err" id="wz-err1"></div>
       <div class="field"><label>Coin name <span class="req">*</span></label><input id="wz-name" maxlength="60" placeholder="e.g. Sunset Beats"></div>
       <div class="field"><label>Ticker <span class="req">*</span></label><input id="wz-ticker" maxlength="10" placeholder="e.g. SUNSET" style="text-transform:uppercase"></div>
       <div class="field"><label>Description <span class="req">*</span></label><textarea id="wz-desc" rows="2" maxlength="280" placeholder="What is your coin about?"></textarea></div>
       <div class="field"><label>YouTube or TikTok link <span class="req">*</span></label><input id="wz-social" inputmode="url" placeholder="https://tiktok.com/@you"></div>
+      <div class="field"><label>Price per coin (USD) <span class="req">*</span></label><input id="wz-price" type="number" min="0.01" step="0.01" value="1.00" inputmode="decimal"></div>
+      <div class="field"><label>Market cap (USD) <span class="req">*</span></label><input id="wz-mcap" type="number" min="100" step="100" value="100000" inputmode="numeric"></div>
+      <div class="mcap-readout" id="wz-mcap-readout"></div>
+      <div class="field"><label>Your ownership</label>
+        <div class="own-toggle" id="wz-own-toggle">
+          <button type="button" class="own-btn own-active" data-own="95">95% mine</button>
+          <button type="button" class="own-btn" data-own="50">50 / 50</button>
+        </div>
+      </div>
       <div class="field"><label>Your name <span class="req">*</span></label><input id="wz-legal" maxlength="80" placeholder="For the issuer agreement"></div>
       <div class="field"><label>Email <span class="req">*</span></label><input id="wz-email" type="email" inputmode="email" placeholder="you@example.com"></div>
       <button class="btn btn-primary" id="wz-next1">Continue →</button>
@@ -364,6 +381,39 @@
     return 'link';
   }
 
+  // --- Ownership toggle (default 95% mine) ---
+  state.equityRetained = 95;
+  document.getElementById('wz-own-toggle').addEventListener('click', function(e){
+    var b = e.target.closest('.own-btn');
+    if (!b) return;
+    var btns = document.querySelectorAll('#wz-own-toggle .own-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove('own-active');
+    b.classList.add('own-active');
+    state.equityRetained = parseInt(b.getAttribute('data-own'), 10);
+  });
+
+  // --- Live price / market-cap / supply readout ---
+  function wzEcon(){
+    var price = parseFloat(document.getElementById('wz-price').value);
+    var mcap = parseFloat(document.getElementById('wz-mcap').value);
+    if (!(price > 0) || !(mcap > 0)) return null;
+    var supply = Math.round(mcap / price);
+    return { price: price, mcap: mcap, supply: supply };
+  }
+  function wzRenderEcon(){
+    var e = wzEcon();
+    var el = document.getElementById('wz-mcap-readout');
+    if (!e){ el.innerHTML = ''; return; }
+    var warn = e.mcap > 500000000
+      ? ' <strong style="color:#b3261e">Over the $500M issuance cap — lower it.</strong>'
+      : '';
+    el.innerHTML = 'Supply: <strong>' + e.supply.toLocaleString() + ' coins</strong> · Market cap: <strong>$' +
+      e.mcap.toLocaleString(undefined, { maximumFractionDigits: 2 }) + '</strong>' + warn;
+  }
+  document.getElementById('wz-price').addEventListener('input', wzRenderEcon);
+  document.getElementById('wz-mcap').addEventListener('input', wzRenderEcon);
+  wzRenderEcon();
+
   document.getElementById('wz-next1').addEventListener('click', async function(){
     err('wz-err1');
     var name = document.getElementById('wz-name').value.trim();
@@ -378,8 +428,13 @@
     if (!/^https?:\/\/.+\..+/.test(social)) return err('wz-err1', 'Paste your YouTube or TikTok link (starting with https://).');
     if (legal.length < 2) return err('wz-err1', 'Enter your name for the issuer agreement.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('wz-err1', 'Enter a valid email address.');
+    var econ = wzEcon();
+    if (!econ) return err('wz-err1', 'Enter a valid price and market cap.');
+    if (econ.mcap > 500000000) return err('wz-err1', 'Market cap can’t exceed $500M at issuance.');
+    if (econ.supply < 1000) return err('wz-err1', 'That price/market cap gives fewer than 1,000 coins — raise the market cap or lower the price.');
 
-    state.form = { name: name, ticker: ticker, desc: desc, social: social, legal: legal, email: email };
+    state.form = { name: name, ticker: ticker, desc: desc, social: social, legal: legal, email: email,
+      price: econ.price, supply: econ.supply, equityRetained: state.equityRetained };
     hide('wz-step1'); show('wz-step2'); err('wz-err2');
     var status = document.getElementById('wz-status');
 
@@ -416,10 +471,10 @@
           category: 'Creator',
           tagline: desc,
           valueThesis: desc,
-          equityPublic: 50,
-          equityRetained: 50,
+          equityPublic: 100 - state.form.equityRetained,
+          equityRetained: state.form.equityRetained,
           socialProfiles: [{ platform: detectPlatform(social), url: social }],
-          priceUsd: 1
+          priceUsd: state.form.price
         }
       });
       state.draftId = draft.draftId;
@@ -451,13 +506,13 @@
       var mint = await api('/issuance/mint', {
         method: 'POST',
         idempotencyKey: idem,
-        body: { userId: state.userId, draftId: state.draftId, issuerAddress: state.issuerAddress, totalShares: 100000 }
+        body: { userId: state.userId, draftId: state.draftId, issuerAddress: state.issuerAddress, totalShares: state.form.supply }
       });
       var coin = mint.coin || {};
       document.getElementById('wz-boom-title').textContent = '$' + (coin.ticker || state.form.ticker) + ' is live! 🎉';
       document.getElementById('wz-boom-sub').textContent =
         (coin.name || state.form.name) + ' minted on its own chain — ' +
-        Number(coin.supply || 100000).toLocaleString() + ' coins at $' + (coin.priceUsd || 1) + '.';
+        Number(coin.supply || state.form.supply).toLocaleString() + ' coins at $' + (coin.priceUsd || state.form.price) + '. You keep ' + state.form.equityRetained + '%.';
       document.getElementById('wz-pw').textContent = state.password;
       hide('wz-step3'); show('wz-step4');
     } catch (e) {
