@@ -7576,74 +7576,150 @@ function useCountUp(target, duration = 900) {
   return val;
 }
 
-/* ---------------- Legitimacy Score ----------------
+/* ---------------- Phase Cred ----------------
    Server-computed (GET /api/v1/legitimacy/me) — this component only
    renders what the backend's records earned; it never derives points
    client-side. Renders nothing when the payload is unavailable, so the
-   dashboard falls back to its original shape. */
+   dashboard falls back to its original shape.
+   Presentation: the card is branded "Phase Cred" in the UI and starts
+   collapsed — a circular gauge plus the next available step; tapping
+   expands the full points checklist. The band shown is the short label
+   mapped from the score here in the UI layer (Meme / Emerging /
+   Established / Proven / Phase); the backend's bandLabel string is not
+   rendered verbatim. */
+function PhaseCredRing({ score }) {
+  const size = 108;
+  const stroke = 10;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const filled = Math.max(0, Math.min(100, score)) / 100;
+  return (
+    <svg
+      className="cred-ring"
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="cred-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="55%" stopColor="#9ccc3c" />
+          <stop offset="100%" stopColor="#00e676" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="rgba(35,40,38,0.08)"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="url(#cred-ring-gradient)"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - filled)}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+    </svg>
+  );
+}
+
 function LegitimacyCard({ data }) {
+  const [expanded, setExpanded] = useState(false);
   const best = data?.best;
   if (!best || !best.legitimacy) return null;
-  const { score, bandLabel, groups } = best.legitimacy;
+  const { score, groups } = best.legitimacy;
+  const bandDisplay =
+    score < 15 ? "Meme" :
+    score < 40 ? "Emerging" :
+    score < 65 ? "Established" :
+    score < 80 ? "Proven" : "Phase";
+  const nextItem = groups
+    .flatMap((g) => g.items)
+    .find((it) => !it.done && it.status !== "coming_soon");
+  const graduated = !!data?.legitimacySummary?.netWorthGraduated;
   return (
     <section className="glass-card legitimacy-card">
       <div className="dash-section-header">
-        <h3 className="subsection-title">Legitimacy Score</h3>
+        <h3 className="subsection-title">Phase Cred</h3>
         <span className="stat-value">{best.ticker}</span>
       </div>
-      <div className="legitimacy-head">
-        <span className="legitimacy-score">{score}%</span>
-        <span className="legitimacy-band">{bandLabel}</span>
-      </div>
-      <div
-        className="legitimacy-bar"
-        role="img"
-        aria-label={`Legitimacy score ${score} percent — ${bandLabel}`}
+      <button
+        type="button"
+        className="cred-toggle"
+        aria-expanded={expanded}
+        aria-label={`Phase Cred ${score} percent — ${bandDisplay}`}
+        onClick={() => setExpanded((v) => !v)}
       >
-        <div className="legitimacy-zone legitimacy-zone-meme" />
-        <div className="legitimacy-zone legitimacy-zone-phase" />
-        <div className="legitimacy-fill" style={{ width: `${score}%` }} />
-        <div className="legitimacy-marker" style={{ left: "15%" }} />
-        <div className="legitimacy-marker" style={{ left: "80%" }} />
+        <span className="cred-ring-wrap">
+          <PhaseCredRing score={score} />
+          <span className="cred-ring-center">
+            <span className="legitimacy-score">{score}%</span>
+            <span className="legitimacy-band">{bandDisplay}</span>
+          </span>
+        </span>
+        <span className="cred-summary">
+          <span className="cred-next-label">{nextItem ? "Next up" : "Checklist"}</span>
+          <span className="cred-next-item">
+            {nextItem ? `+${nextItem.points} ${nextItem.label}` : "Every available step is done"}
+          </span>
+          <span className="cred-next-cta">{expanded ? "Hide checklist" : "See how to climb"}</span>
+        </span>
+        <span className={`cred-chevron${expanded ? " cred-chevron-open" : ""}`}>▾</span>
+      </button>
+      <div className="cred-scale-labels">
+        <span>Meme · {"<15"}</span>
+        <span>Phase · 80+</span>
       </div>
-      <div className="legitimacy-scale-labels">
-        <span>Meme territory · under 15</span>
-        <span>Phase territory · 80+</span>
-      </div>
-      <div className="legitimacy-groups">
-        {groups.map((g) => (
-          <div key={g.key} className="legitimacy-group">
-            <span className="stat-label">{g.label}</span>
-            {g.items.map((it) =>
-              it.done ? (
-                <div key={it.key} className="legitimacy-item legitimacy-item-done">
-                  <span className="legitimacy-check">✓</span>
-                  <span className="legitimacy-item-label">{it.label}</span>
-                  <span className="legitimacy-points">{it.points} pts</span>
-                </div>
-              ) : it.status === "coming_soon" ? (
-                <div key={it.key} className="legitimacy-item legitimacy-item-soon">
-                  <span className="legitimacy-check legitimacy-check-soon">•</span>
-                  <span className="legitimacy-item-label">
-                    {it.label}
-                    <span className="legitimacy-hint">{it.hint}</span>
-                  </span>
-                  <span className="legitimacy-soon-tag">Coming soon</span>
-                </div>
-              ) : (
-                <div key={it.key} className="legitimacy-item legitimacy-item-missing">
-                  <span className="legitimacy-check legitimacy-check-missing">+</span>
-                  <span className="legitimacy-item-label">
-                    {it.label}
-                    <span className="legitimacy-hint">{it.hint}</span>
-                  </span>
-                  <span className="legitimacy-points">+{it.points}</span>
-                </div>
-              )
-            )}
+      {expanded && (
+        <>
+          <div className="legitimacy-groups">
+            {groups.map((g) => (
+              <div key={g.key} className="legitimacy-group">
+                <span className="stat-label">{g.label}</span>
+                {g.items.map((it) =>
+                  it.done ? (
+                    <div key={it.key} className="legitimacy-item legitimacy-item-done">
+                      <span className="legitimacy-check">✓</span>
+                      <span className="legitimacy-item-label">{it.label}</span>
+                      <span className="legitimacy-points">{it.points} pts</span>
+                    </div>
+                  ) : it.status === "coming_soon" ? (
+                    <div key={it.key} className="legitimacy-item legitimacy-item-soon">
+                      <span className="legitimacy-check legitimacy-check-soon">•</span>
+                      <span className="legitimacy-item-label">
+                        {it.label}
+                        <span className="legitimacy-hint">{it.hint}</span>
+                      </span>
+                      <span className="legitimacy-soon-tag">Coming soon</span>
+                    </div>
+                  ) : (
+                    <div key={it.key} className="legitimacy-item legitimacy-item-missing">
+                      <span className="legitimacy-check legitimacy-check-missing">+</span>
+                      <span className="legitimacy-item-label">
+                        {it.label}
+                        <span className="legitimacy-hint">{it.hint}</span>
+                      </span>
+                      <span className="legitimacy-points">+{it.points}</span>
+                    </div>
+                  )
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+          {!graduated && (
+            <p className="legitimacy-note">Reach 80% Phase Cred to graduate your net worth.</p>
+          )}
+        </>
+      )}
     </section>
   );
 }
@@ -7676,7 +7752,7 @@ function DashboardTab({
   const [countering, setCountering] = useState(null);
   // Animated net-worth readout.
   const animatedNetWorth = useCountUp(netWorthUsd);
-  // Legitimacy Score (server-computed from real records). null means
+  // Phase Cred (server-computed from real records). null means
   // unavailable — the dashboard then renders exactly as before.
   const [legitimacyData, setLegitimacyData] = useState(null);
   useEffect(() => {
@@ -7767,9 +7843,6 @@ function DashboardTab({
         </div>
         <span className="stat-label">{netWorthGraduated ? "Net Worth" : "Soft Net Worth"}</span>
         <span className="net-worth-value">{formatCurrency(animatedNetWorth, currency, liveFx)}</span>
-        {!netWorthGraduated && legitimacyData && (
-          <p className="legitimacy-note">Reach 80% legitimacy to graduate your net worth.</p>
-        )}
         <p className="net-worth-disclaimer">
           Soft net worth values your issued coins at their listing price — it
           only becomes real as buyers purchase your coins. On-chained value
@@ -9668,19 +9741,22 @@ function GlobalStyles() {
       .net-worth-value { font-family: 'IBM Plex Mono'; font-size: 34px; font-weight: 700; color: var(--sky-500); display: block; margin: 4px 0 16px; text-shadow: 0 0 18px rgba(255,213,74,0.45), 0 0 32px rgba(0,230,118,0.25); }
       .net-worth-disclaimer { font-size: 12px; color: var(--muted, #5a6b60); margin: -8px 0 16px; font-style: italic; }
 
-      /* ---------------- Legitimacy Score ---------------- */
-      .legitimacy-note { font-size: 12px; color: #00a651; margin: -8px 0 16px; font-weight: 600; }
-      .legitimacy-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
-      .legitimacy-score { font-family: 'IBM Plex Mono'; font-size: 34px; font-weight: 700; color: #00a651; }
-      .legitimacy-band { font-size: 14px; font-weight: 700; }
-      .legitimacy-bar { position: relative; height: 12px; border-radius: 999px; background: rgba(35,40,38,0.08); overflow: hidden; }
-      .legitimacy-zone { position: absolute; top: 0; bottom: 0; }
-      .legitimacy-zone-meme { left: 0; width: 15%; background: rgba(229,57,53,0.20); }
-      .legitimacy-zone-phase { left: 80%; width: 20%; background: rgba(0,230,118,0.32); }
-      .legitimacy-fill { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg, #00c853, #00e676); border-radius: 999px; }
-      .legitimacy-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(35,40,38,0.45); }
-      .legitimacy-scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.55; font-weight: 600; margin: 6px 0 14px; text-transform: uppercase; letter-spacing: 0.04em; }
-      .legitimacy-groups { display: flex; flex-direction: column; gap: 14px; }
+      /* ---------------- Phase Cred ---------------- */
+      .legitimacy-note { font-size: 12px; color: #00a651; margin: 14px 0 0; font-weight: 600; }
+      .cred-toggle { display: flex; align-items: center; gap: 16px; width: 100%; background: none; border: none; padding: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+      .cred-ring-wrap { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+      .cred-ring { display: block; }
+      .cred-ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+      .legitimacy-score { font-family: 'IBM Plex Mono'; font-size: 25px; font-weight: 700; color: #00a651; line-height: 1; }
+      .legitimacy-band { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; }
+      .cred-summary { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .cred-next-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.55; }
+      .cred-next-item { font-size: 14.5px; font-weight: 700; }
+      .cred-next-cta { font-size: 12.5px; font-weight: 600; color: #00a651; }
+      .cred-chevron { flex-shrink: 0; font-size: 14px; opacity: 0.55; transition: transform 0.2s ease; }
+      .cred-chevron-open { transform: rotate(180deg); }
+      .cred-scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.55; font-weight: 600; margin: 10px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+      .legitimacy-groups { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
       .legitimacy-group .stat-label { margin-bottom: 6px; }
       .legitimacy-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 3px 0; }
       .legitimacy-check { font-weight: 700; color: #00a651; flex-shrink: 0; width: 14px; text-align: center; }
