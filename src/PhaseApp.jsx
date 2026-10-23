@@ -2044,6 +2044,9 @@ function AppInner() {
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const t = new URLSearchParams(window.location.search).get("tab");
+      // Dashboard stays gated (mirrors TopNav): with no stored account a
+      // ?tab=dashboard deep link falls through to "golive", never a blank tab.
+      if (t === "dashboard" && !getAuthUser()) return "golive";
       if (t === "market" || t === "dashboard" || t === "golive") return t;
     } catch {}
     return "golive";
