@@ -7557,6 +7557,69 @@ function useCountUp(target, duration = 900) {
   return val;
 }
 
+/* ---------------- Legitimacy Score ----------------
+   Server-computed (GET /api/v1/legitimacy/me) — this component only
+   renders what the backend's records earned; it never derives points
+   client-side. Renders nothing when the payload is unavailable, so the
+   dashboard falls back to its original shape. */
+function LegitimacyCard({ data }) {
+  const best = data?.best;
+  if (!best || !best.legitimacy) return null;
+  const { score, bandLabel, groups } = best.legitimacy;
+  return (
+    <section className="glass-card legitimacy-card">
+      <div className="dash-section-header">
+        <h3 className="subsection-title">Legitimacy Score</h3>
+        <span className="stat-value">{best.ticker}</span>
+      </div>
+      <div className="legitimacy-head">
+        <span className="legitimacy-score">{score}%</span>
+        <span className="legitimacy-band">{bandLabel}</span>
+      </div>
+      <div
+        className="legitimacy-bar"
+        role="img"
+        aria-label={`Legitimacy score ${score} percent — ${bandLabel}`}
+      >
+        <div className="legitimacy-zone legitimacy-zone-meme" />
+        <div className="legitimacy-zone legitimacy-zone-phase" />
+        <div className="legitimacy-fill" style={{ width: `${score}%` }} />
+        <div className="legitimacy-marker" style={{ left: "15%" }} />
+        <div className="legitimacy-marker" style={{ left: "80%" }} />
+      </div>
+      <div className="legitimacy-scale-labels">
+        <span>Meme territory · under 15</span>
+        <span>Phase territory · 80+</span>
+      </div>
+      <div className="legitimacy-groups">
+        {groups.map((g) => (
+          <div key={g.key} className="legitimacy-group">
+            <span className="stat-label">{g.label}</span>
+            {g.items.map((it) =>
+              it.done ? (
+                <div key={it.key} className="legitimacy-item legitimacy-item-done">
+                  <span className="legitimacy-check">✓</span>
+                  <span className="legitimacy-item-label">{it.label}</span>
+                  <span className="legitimacy-points">{it.points} pts</span>
+                </div>
+              ) : (
+                <div key={it.key} className="legitimacy-item legitimacy-item-missing">
+                  <span className="legitimacy-check legitimacy-check-missing">+</span>
+                  <span className="legitimacy-item-label">
+                    {it.label}
+                    <span className="legitimacy-hint">{it.hint}</span>
+                  </span>
+                  <span className="legitimacy-points">+{it.points}</span>
+                </div>
+              )
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DashboardTab({
   assets,
   holdings,
@@ -7585,6 +7648,17 @@ function DashboardTab({
   const [countering, setCountering] = useState(null);
   // Animated net-worth readout.
   const animatedNetWorth = useCountUp(netWorthUsd);
+  // Legitimacy Score (server-computed from real records). null means
+  // unavailable — the dashboard then renders exactly as before.
+  const [legitimacyData, setLegitimacyData] = useState(null);
+  useEffect(() => {
+    let live = true;
+    backendFetch("/legitimacy/me")
+      .then((d) => { if (live && d && d.legitimacySummary) setLegitimacyData(d); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const netWorthGraduated = !!legitimacyData?.legitimacySummary?.netWorthGraduated;
 
   const enrichedHoldings = holdings
     .map((h) => {
@@ -7663,8 +7737,11 @@ function DashboardTab({
             <CurrencyDropdown currency={currency} setCurrency={setCurrency} />
           </div>
         </div>
-        <span className="stat-label">Soft Net Worth</span>
+        <span className="stat-label">{netWorthGraduated ? "Net Worth" : "Soft Net Worth"}</span>
         <span className="net-worth-value">{formatCurrency(animatedNetWorth, currency, liveFx)}</span>
+        {!netWorthGraduated && legitimacyData && (
+          <p className="legitimacy-note">Reach 80% legitimacy to graduate your net worth.</p>
+        )}
         <p className="net-worth-disclaimer">
           Soft net worth values your issued coins at their listing price — it
           only becomes real as buyers purchase your coins. On-chained value
@@ -7688,6 +7765,8 @@ function DashboardTab({
 
         <DonutLegend segments={donutSegments} />
       </section>
+
+      <LegitimacyCard data={legitimacyData} />
 
       {phaseCoins > 0 && holdings.length === 0 && (
         <div className="banner-flash glass-card">
@@ -9558,6 +9637,28 @@ function GlobalStyles() {
       .dashboard-wrap { display: flex; flex-direction: column; gap: 18px; }
       .net-worth-value { font-family: 'IBM Plex Mono'; font-size: 34px; font-weight: 700; color: var(--sky-500); display: block; margin: 4px 0 16px; text-shadow: 0 0 18px rgba(255,213,74,0.45), 0 0 32px rgba(0,230,118,0.25); }
       .net-worth-disclaimer { font-size: 12px; color: var(--muted, #5a6b60); margin: -8px 0 16px; font-style: italic; }
+
+      /* ---------------- Legitimacy Score ---------------- */
+      .legitimacy-note { font-size: 12px; color: #00a651; margin: -8px 0 16px; font-weight: 600; }
+      .legitimacy-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+      .legitimacy-score { font-family: 'IBM Plex Mono'; font-size: 34px; font-weight: 700; color: #00a651; }
+      .legitimacy-band { font-size: 14px; font-weight: 700; }
+      .legitimacy-bar { position: relative; height: 12px; border-radius: 999px; background: rgba(35,40,38,0.08); overflow: hidden; }
+      .legitimacy-zone { position: absolute; top: 0; bottom: 0; }
+      .legitimacy-zone-meme { left: 0; width: 15%; background: rgba(229,57,53,0.20); }
+      .legitimacy-zone-phase { left: 80%; width: 20%; background: rgba(0,230,118,0.32); }
+      .legitimacy-fill { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg, #00c853, #00e676); border-radius: 999px; }
+      .legitimacy-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(35,40,38,0.45); }
+      .legitimacy-scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.55; font-weight: 600; margin: 6px 0 14px; text-transform: uppercase; letter-spacing: 0.04em; }
+      .legitimacy-groups { display: flex; flex-direction: column; gap: 14px; }
+      .legitimacy-group .stat-label { margin-bottom: 6px; }
+      .legitimacy-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 3px 0; }
+      .legitimacy-check { font-weight: 700; color: #00a651; flex-shrink: 0; width: 14px; text-align: center; }
+      .legitimacy-check-missing { color: #b26a00; }
+      .legitimacy-item-label { flex: 1; }
+      .legitimacy-item-done .legitimacy-item-label { opacity: 0.85; }
+      .legitimacy-hint { display: block; font-size: 11.5px; opacity: 0.55; margin-top: 1px; }
+      .legitimacy-points { font-family: 'IBM Plex Mono'; font-weight: 600; opacity: 0.75; flex-shrink: 0; }
 
       .dash-section-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 
