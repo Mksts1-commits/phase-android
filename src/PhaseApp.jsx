@@ -2038,7 +2038,16 @@ class PhaseErrorBoundary extends React.Component {
 }
 
 function AppInner() {
-  const [activeTab, setActiveTab] = useState("golive"); // golive | market | dashboard
+  // Deep links: a ?tab= param (market | dashboard | golive) wins on load —
+  // the public landing page links straight into a tab. Anything else/absent
+  // -> "golive" (default). Guarded so it can never throw in the WebView.
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (t === "market" || t === "dashboard" || t === "golive") return t;
+    } catch {}
+    return "golive";
+  });
   const [authUser, setAuthUser] = useState(() => getAuthUser());
   const [authReady, setAuthReady] = useState(false);
   const isAndroid = useMemo(() => /Android/.test(navigator.userAgent || ""), []);
@@ -2085,6 +2094,16 @@ function AppInner() {
     el.classList.remove("tab-enter");
     void el.offsetWidth;
     el.classList.add("tab-enter");
+  }, [activeTab]);
+  // Keep the URL in sync with the active tab (shareable deep links, no reload).
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") !== activeTab) {
+        url.searchParams.set("tab", activeTab);
+        window.history.replaceState(null, "", url);
+      }
+    } catch {}
   }, [activeTab]);
   // Fetch the user's real issued coins from the backend and merge them into
   // the asset list as owned products.
