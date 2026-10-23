@@ -5297,6 +5297,27 @@ function CategoryPicker({ counts, onPick }) {
 const issuerTag = (userId) =>
   userId === currentUserId() ? "You" : `Issuer ${String(userId || "").slice(0, 6)}…`;
 
+// A coin's mark: the issuer's logo image when the coin has one
+// (logoUrl, set on the draft or via the coin-profile PATCH), laid
+// over the ticker-initials tile — a broken or missing logo falls
+// back to the initials.
+function CoinAvatar({ coin, large = false }) {
+  const initials = String(coin.ticker || "?").slice(0, 2).toUpperCase();
+  return (
+    <div className={`dir-coin-avatar${large ? " dir-coin-avatar-lg" : ""}`}>
+      {initials}
+      {coin.logoUrl && (
+        <img
+          src={coin.logoUrl}
+          alt=""
+          className="dir-coin-logo-img"
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
+      )}
+    </div>
+  );
+}
+
 // One row in the issuer directory: online dot, identity, key numbers,
 // and Buy / Compare actions.
 function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }) {
@@ -5307,7 +5328,7 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
       <button className="dir-coin-main" onClick={onDetail} aria-label={`Details for ${coin.name}`}>
         <span className="online-dot" title="Online" />
         <div className="dir-coin-id">
-          <div className="dir-coin-avatar">{String(coin.ticker || "?").slice(0, 2).toUpperCase()}</div>
+          <CoinAvatar coin={coin} />
           <div className="dir-coin-names">
             <div className="holdings-name">
               {coin.name}
@@ -5366,9 +5387,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
           <Icon name="close" size={18} />
         </button>
         <div className="dir-coin-id coin-detail-head">
-          <div className="dir-coin-avatar dir-coin-avatar-lg">
-            {String(coin.ticker || "?").slice(0, 2).toUpperCase()}
-          </div>
+          <CoinAvatar coin={coin} large />
           <div>
             <h3>
               {coin.name} <span className="ticker-tag">{coin.ticker}</span>
@@ -7602,6 +7621,15 @@ function LegitimacyCard({ data }) {
                   <span className="legitimacy-item-label">{it.label}</span>
                   <span className="legitimacy-points">{it.points} pts</span>
                 </div>
+              ) : it.status === "coming_soon" ? (
+                <div key={it.key} className="legitimacy-item legitimacy-item-soon">
+                  <span className="legitimacy-check legitimacy-check-soon">•</span>
+                  <span className="legitimacy-item-label">
+                    {it.label}
+                    <span className="legitimacy-hint">{it.hint}</span>
+                  </span>
+                  <span className="legitimacy-soon-tag">Coming soon</span>
+                </div>
               ) : (
                 <div key={it.key} className="legitimacy-item legitimacy-item-missing">
                   <span className="legitimacy-check legitimacy-check-missing">+</span>
@@ -8865,7 +8893,9 @@ function GlobalStyles() {
         display: flex; align-items: center; justify-content: center;
         background: linear-gradient(135deg, var(--sky-500), var(--violet));
         color: #0b100d; font-weight: 700; font-size: 13px;
+        position: relative; overflow: hidden;
       }
+      .dir-coin-logo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
       .dir-coin-avatar-lg { width: 48px; height: 48px; font-size: 16px; border-radius: 14px; }
       .dir-coin-names { min-width: 0; }
       .dir-coin-sub { font-size: 11.5px; opacity: 0.6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -9659,6 +9689,12 @@ function GlobalStyles() {
       .legitimacy-item-done .legitimacy-item-label { opacity: 0.85; }
       .legitimacy-hint { display: block; font-size: 11.5px; opacity: 0.55; margin-top: 1px; }
       .legitimacy-points { font-family: 'IBM Plex Mono'; font-weight: 600; opacity: 0.75; flex-shrink: 0; }
+      .legitimacy-item-soon { opacity: 0.55; }
+      .legitimacy-check-soon { color: inherit; }
+      .legitimacy-soon-tag {
+        font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+        border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; flex-shrink: 0;
+      }
 
       .dash-section-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 
