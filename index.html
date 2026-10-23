@@ -137,13 +137,17 @@
 <div class="coin-cta-wrap" style="padding-top:28px">
   <button id="want-coin-btn" class="btn-coin">🪙 Mint my coin</button>
   <p class="hint">Mint your own coin in about 2 minutes — no app download needed.</p>
+  <div style="display:flex; gap:12px; width:100%; max-width:420px; margin-top:16px">
+    <a class="btn btn-primary" href="./app/?tab=market" style="margin-bottom:0; text-align:center">Open the Marketplace</a>
+    <a class="btn btn-secondary" href="./app/?tab=dashboard" style="margin-bottom:0; text-align:center">Open My Dashboard</a>
+  </div>
 </div>
 <div class="market-wrap">
   <div class="market-card">
     <h2>🚀 Checkout marketplace</h2>
     <p id="market-sub">Latest and freshly minted coins.</p>
     <div id="market-grid" class="market-grid"><p class="hint">Loading live coins…</p></div>
-    <a class="btn btn-primary" href="./app/" style="margin-top:20px">Open the marketplace</a>
+    <a class="btn btn-primary" href="./app/?tab=market" style="margin-top:20px">Open the marketplace</a>
   </div>
 </div>
 <script>
@@ -177,17 +181,17 @@
   <div class="card">
     <div id="ios-msg" class="hidden">
       <p>Tap below to open Phase in your browser. For the full experience, tap <strong>Share → Add to Home Screen</strong>.</p>
-      <a class="btn btn-primary" href="./app/">Open Phase Web App</a>
+      <a class="btn btn-primary" href="./app/?tab=dashboard">Open Phase Web App</a>
       <p class="hint">The native iPhone app is coming to the App Store soon.</p>
     </div>
     <div id="android-msg" class="hidden">
       <p>Get Phase for Android — download the app, or use it right in your browser.</p>
       <a class="btn btn-primary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
-      <a class="btn btn-secondary" href="./app/">Open Web App Instead</a>
+      <a class="btn btn-secondary" href="./app/?tab=dashboard">Open Web App Instead</a>
     </div>
     <div id="desktop-msg" class="hidden">
       <p>Choose your platform:</p>
-      <a class="btn btn-primary" href="./app/">Open Web App</a>
+      <a class="btn btn-primary" href="./app/?tab=dashboard">Open Web App</a>
       <a class="btn btn-secondary" href="https://github.com/Mksts1-commits/phase-android/releases/download/v3.0/Phase.apk">Download Phase Φ</a>
     </div>
   </div>
