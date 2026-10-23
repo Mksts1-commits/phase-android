@@ -5302,7 +5302,7 @@ const issuerTag = (userId) =>
 // over the ticker-initials tile — a broken or missing logo falls
 // back to the initials. The tile also carries the coin's Phase Cred
 // band (from its legitimacy view, when present): Meme reads red,
-// Phase reads neon green, middle bands keep the default tile. With
+// Phase reads blue, middle bands keep the default tile. With
 // a logo image the band shows as a ring/tint overlay above the img;
 // with initials the tile itself takes the treatment.
 function CoinAvatar({ coin, large = false }) {
@@ -5327,6 +5327,7 @@ function CoinAvatar({ coin, large = false }) {
 // One row in the issuer directory: online dot, identity, key numbers,
 // and Buy / Compare actions.
 function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }) {
+  const credBand = avatarCredBand(coin.legitimacy);
   const mcap = (Number(coin.priceUsd) || 0) * (Number(coin.supply) || 0);
   const floatAvail = coin.floatAvailable != null ? Number(coin.floatAvailable) : null;
   return (
@@ -5355,7 +5356,7 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
       </button>
       <div className="dir-coin-actions">
         {!coin.mine && (
-          <button className="pill-btn pill-btn-active dir-buy-btn" onClick={onBuy}>
+          <button className={`pill-btn pill-btn-active dir-buy-btn${credBand ? ` buy-${credBand}` : ""}`} onClick={onBuy}>
             Buy
           </button>
         )}
@@ -5406,7 +5407,7 @@ function CoinCredBlock({ coin }) {
           </span>
           <span className="cred-scale-labels coin-cred-scale">
             <span>Meme · {"<15"}</span>
-            <span>Phase · 80+</span>
+            <span className="cred-pole-phase">Phase · 80+</span>
           </span>
         </div>
       </div>
@@ -5436,6 +5437,7 @@ function CoinCredBlock({ coin }) {
 function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
   const mcap = (Number(coin.priceUsd) || 0) * (Number(coin.supply) || 0);
   const floatAvail = coin.floatAvailable != null ? Number(coin.floatAvailable) : null;
+  const credBand = avatarCredBand(coin.legitimacy);
   const issuedOn = coin.createdAt ? new Date(coin.createdAt).toLocaleDateString() : "—";
   const rows = [
     ["Price per coin", `$${(Number(coin.priceUsd) || 0).toFixed(2)}`],
@@ -5508,7 +5510,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
         </div>
         <div className="coin-detail-actions">
           {!coin.mine && (
-            <button className="pill-btn pill-btn-active" onClick={onBuy}>
+            <button className={`pill-btn pill-btn-active${credBand ? ` buy-${credBand}` : ""}`} onClick={onBuy}>
               Buy {coin.ticker}
             </button>
           )}
@@ -5579,11 +5581,14 @@ function CompareModal({ coins, onRemove, onClose, onBuy }) {
         <div className="coin-detail-actions">
           {coins
             .filter((c) => !c.mine)
-            .map((c) => (
-              <button key={c.chainId} className="pill-btn" onClick={() => onBuy(c)}>
-                Buy {c.ticker}
-              </button>
-            ))}
+            .map((c) => {
+              const band = avatarCredBand(c.legitimacy);
+              return (
+                <button key={c.chainId} className={`pill-btn${band ? ` buy-${band}` : ""}`} onClick={() => onBuy(c)}>
+                  Buy {c.ticker}
+                </button>
+              );
+            })}
         </div>
       </div>
     </div>
@@ -7668,7 +7673,7 @@ function credBandDisplay(score) {
 }
 
 /* Marketplace ticker coloring from the coin's Phase Cred score:
-   Meme band (<15) reads red, Phase band (80+) reads neon green,
+   Meme band (<15) reads red, Phase band (80+) reads blue,
    middle bands keep the default tag color. Returns "" when the coin
    carries no legitimacy view (older backend) so nothing changes. */
 function tickerCredClass(legitimacy) {
@@ -7706,8 +7711,8 @@ function PhaseCredRing({ score, size = 108 }) {
       <defs>
         <linearGradient id="cred-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#f59e0b" />
-          <stop offset="55%" stopColor="#9ccc3c" />
-          <stop offset="100%" stopColor="#00e676" />
+          <stop offset="55%" stopColor="#4db6a4" />
+          <stop offset="100%" stopColor="#2f7bff" />
         </linearGradient>
       </defs>
       <circle
@@ -7785,7 +7790,7 @@ function LegitimacyCard({ data }) {
       </button>
       <div className="cred-scale-labels">
         <span>Meme · {"<15"}</span>
-        <span>Phase · 80+</span>
+        <span className="cred-pole-phase">Phase · 80+</span>
       </div>
       {expanded && (
         <>
@@ -9090,14 +9095,14 @@ function GlobalStyles() {
       .dir-coin-logo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
       .dir-coin-avatar-lg { width: 48px; height: 48px; font-size: 16px; border-radius: 14px; }
       /* Phase Cred band treatment on the avatar tile: Meme = red,
-         Phase = neon green glow, middle bands = default tile. The
+         Phase = blue, middle bands = default tile. The
          fx overlay (ring + tint) paints above a logo image; the
          initials tile itself takes the background/color treatment. */
       .dir-coin-avatar.avatar-meme { background: linear-gradient(135deg, #f97066, #d92d20); color: #ffffff; }
-      .dir-coin-avatar.avatar-phase { box-shadow: 0 0 12px rgba(0,230,118,0.55), 0 0 3px rgba(0,230,118,0.85); }
+      .dir-coin-avatar.avatar-phase { background: linear-gradient(135deg, #5ea0ff, #2f7bff); color: #ffffff; box-shadow: 0 0 12px rgba(47,123,255,0.45), 0 0 3px rgba(47,123,255,0.7); }
       .dir-coin-avatar-fx { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
       .dir-coin-avatar-fx.fx-meme { border: 2px solid rgba(217,45,32,0.95); background: rgba(217,45,32,0.16); }
-      .dir-coin-avatar-fx.fx-phase { border: 2px solid rgba(0,230,118,0.95); background: rgba(0,230,118,0.10); box-shadow: inset 0 0 8px rgba(0,230,118,0.5); }
+      .dir-coin-avatar-fx.fx-phase { border: 2px solid rgba(47,123,255,0.95); background: rgba(47,123,255,0.12); box-shadow: inset 0 0 8px rgba(47,123,255,0.45); }
       .dir-coin-names { min-width: 0; }
       .dir-coin-sub { font-size: 11.5px; opacity: 0.6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .dir-coin-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
@@ -9105,6 +9110,13 @@ function GlobalStyles() {
       .dir-coin-float { font-size: 11px; color: #00a651; font-weight: 600; }
       .dir-coin-actions { display: flex; gap: 8px; margin-top: 10px; }
       .dir-buy-btn { flex: 1; text-align: center; }
+      /* Band-themed Buy buttons across the marketplace (directory,
+         detail, compare): Meme = red, Phase = blue, white text on
+         both; middle bands keep the default pill treatment. */
+      .pill-btn.buy-meme { background: #d92d20; border-color: #d92d20; color: #ffffff; }
+      .pill-btn.buy-meme:hover { background: #b42318; border-color: #b42318; color: #ffffff; }
+      .pill-btn.buy-phase { background: #2f7bff; border-color: #2f7bff; color: #ffffff; }
+      .pill-btn.buy-phase:hover { background: #1f66e0; border-color: #1f66e0; color: #ffffff; }
 
       .market-browse-divider {
         display: flex; align-items: center; gap: 12px; margin: 6px 0 16px;
@@ -9909,6 +9921,7 @@ function GlobalStyles() {
       .cred-chevron { flex-shrink: 0; font-size: 14px; opacity: 0.55; transition: transform 0.2s ease; }
       .cred-chevron-open { transform: rotate(180deg); }
       .cred-scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.55; font-weight: 600; margin: 10px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+      .cred-scale-labels .cred-pole-phase { color: #2f7bff; }
       .legitimacy-groups { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
       .legitimacy-group .stat-label { margin-bottom: 6px; }
       .legitimacy-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 3px 0; }
@@ -9996,15 +10009,13 @@ function GlobalStyles() {
       }
       .ticker-tag-lg { font-size: 12px; padding: 2px 8px; margin-left: 9px; }
       /* Marketplace Phase Cred ticker states: Meme band (<15) red,
-         Phase band (80+) bright neon green with a glow. Middle bands
+         Phase band (80+) blue on a soft blue wash. Middle bands
          keep the default .ticker-tag colors above. */
       .ticker-tag.ticker-meme {
         color: #d92d20; background: rgba(217,45,32,0.1);
       }
       .ticker-tag.ticker-phase {
-        color: #00e676; background: rgba(0,230,118,0.14);
-        text-shadow: 0 0 6px rgba(0,230,118,0.85), 0 0 14px rgba(0,230,118,0.45);
-        box-shadow: 0 0 10px rgba(0,230,118,0.4), inset 0 0 6px rgba(0,230,118,0.22);
+        color: #2f7bff; background: rgba(47,123,255,0.12);
       }
       @media (max-width: 700px) {
         .holdings-row { grid-template-columns: 1fr 1fr; font-size: 12px; }
