@@ -5332,7 +5332,7 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
           <div className="dir-coin-names">
             <div className="holdings-name">
               {coin.name}
-              <span className="ticker-tag">{coin.ticker}</span>
+              <span className={`ticker-tag${tickerCredClass(coin.legitimacy)}`}>{coin.ticker}</span>
             </div>
             <div className="dir-coin-sub">
               {coin.mine ? "Your issuance" : issuerTag(coin.issuerUserId)}
@@ -5364,6 +5364,58 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
   );
 }
 
+/* Phase Cred on the marketplace coin detail — the PUBLIC view. The
+   payload's compact legitimacy object (score, band, earned items)
+   comes from the same server scorer as the dashboard card. Only the
+   EARNED proof is listed here: the missing-item hints / climb prompts
+   are the owner's homework and live only in their dashboard. Renders
+   nothing when the backend didn't send a legitimacy view. */
+function CoinCredBlock({ coin }) {
+  const leg = coin.legitimacy;
+  if (!leg || typeof leg.score !== "number") return null;
+  const score = Math.max(0, Math.min(100, leg.score));
+  const band = credBandDisplay(score);
+  const earned = Array.isArray(leg.earned) ? leg.earned : [];
+  const ringSize = 84;
+  return (
+    <div className="coin-cred-block">
+      <div className="coin-cred-head">
+        <span
+          className="cred-ring-wrap"
+          style={{ width: ringSize, height: ringSize }}
+        >
+          <PhaseCredRing score={score} size={ringSize} />
+          <span className="cred-ring-center">
+            <span className="legitimacy-score coin-cred-score">{score}%</span>
+            <span className="legitimacy-band">{band}</span>
+          </span>
+        </span>
+        <div className="coin-cred-summary">
+          <span className="coin-cred-title">Phase Cred</span>
+          <span className="coin-cred-bandline">
+            {band} · {score} of 100 — proof this issuer has on file
+          </span>
+          <span className="cred-scale-labels coin-cred-scale">
+            <span>Meme · {"<15"}</span>
+            <span>Phase · 80+</span>
+          </span>
+        </div>
+      </div>
+      {earned.length > 0 && (
+        <div className="coin-cred-earned">
+          {earned.map((it) => (
+            <div key={it.key} className="legitimacy-item legitimacy-item-done">
+              <span className="legitimacy-check">✓</span>
+              <span className="legitimacy-item-label">{it.label}</span>
+              <span className="legitimacy-points">{it.points} pts</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Full key information for one coin — everything needed to decide.
 function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
   const mcap = (Number(coin.priceUsd) || 0) * (Number(coin.supply) || 0);
@@ -5390,7 +5442,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
           <CoinAvatar coin={coin} large />
           <div>
             <h3>
-              {coin.name} <span className="ticker-tag">{coin.ticker}</span>
+              {coin.name} <span className={`ticker-tag${tickerCredClass(coin.legitimacy)}`}>{coin.ticker}</span>
             </h3>
             <p className="section-sub">
               {coin.mine ? "Your issuance" : issuerTag(coin.issuerUserId)} · sovereign chain
@@ -5428,6 +5480,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
             )}
           </div>
         )}
+        <CoinCredBlock coin={coin} />
         <div className="coin-detail-rows">
           <p className="coin-detail-section-label">Financials</p>
           {rows.map(([label, value]) => (
@@ -5484,7 +5537,7 @@ function CompareModal({ coins, onRemove, onClose, onBuy }) {
                 {coins.map((c) => (
                   <th key={c.chainId}>
                     <div className="compare-head">
-                      <span className="ticker-tag">{c.ticker}</span>
+                      <span className={`ticker-tag${tickerCredClass(c.legitimacy)}`}>{c.ticker}</span>
                       <button className="icon-btn" onClick={() => onRemove(c.chainId)} aria-label={`Remove ${c.ticker}`}>
                         <Icon name="close" size={12} />
                       </button>
@@ -7587,8 +7640,29 @@ function useCountUp(target, duration = 900) {
    mapped from the score here in the UI layer (Meme / Emerging /
    Established / Proven / Phase); the backend's bandLabel string is not
    rendered verbatim. */
-function PhaseCredRing({ score }) {
-  const size = 108;
+/* Short band word for a Phase Cred score — mapped here in the UI layer
+   from the numeric score (the backend's legacy bandLabel string is
+   never rendered). Shared by the dashboard card and the marketplace. */
+function credBandDisplay(score) {
+  return score < 15 ? "Meme" :
+    score < 40 ? "Emerging" :
+    score < 65 ? "Established" :
+    score < 80 ? "Proven" : "Phase";
+}
+
+/* Marketplace ticker coloring from the coin's Phase Cred score:
+   Meme band (<15) reads red, Phase band (80+) reads neon green,
+   middle bands keep the default tag color. Returns "" when the coin
+   carries no legitimacy view (older backend) so nothing changes. */
+function tickerCredClass(legitimacy) {
+  const score = legitimacy?.score;
+  if (typeof score !== "number") return "";
+  if (score < 15) return " ticker-meme";
+  if (score >= 80) return " ticker-phase";
+  return "";
+}
+
+function PhaseCredRing({ score, size = 108 }) {
   const stroke = 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -7637,11 +7711,7 @@ function LegitimacyCard({ data }) {
   const best = data?.best;
   if (!best || !best.legitimacy) return null;
   const { score, groups } = best.legitimacy;
-  const bandDisplay =
-    score < 15 ? "Meme" :
-    score < 40 ? "Emerging" :
-    score < 65 ? "Established" :
-    score < 80 ? "Proven" : "Phase";
+  const bandDisplay = credBandDisplay(score);
   const nextItem = groups
     .flatMap((g) => g.items)
     .find((it) => !it.done && it.status !== "coming_soon");
@@ -9004,6 +9074,19 @@ function GlobalStyles() {
       .coin-detail-thesis { font-size: 13px; line-height: 1.55; opacity: 0.8; margin: 0; white-space: pre-wrap; }
       .coin-detail-links { margin-bottom: 14px; }
       .coin-detail-section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.55; margin: 0 0 4px; }
+      /* Phase Cred (public view) inside the coin detail sheet */
+      .coin-cred-block {
+        border-top: 1px solid rgba(0,230,118,0.12);
+        border-bottom: 1px solid rgba(0,230,118,0.12);
+        padding: 14px 0 12px; margin-bottom: 14px;
+      }
+      .coin-cred-head { display: flex; align-items: center; gap: 14px; }
+      .coin-cred-summary { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .coin-cred-title { font-size: 15px; font-weight: 700; }
+      .coin-cred-bandline { font-size: 12.5px; opacity: 0.7; font-weight: 600; }
+      .coin-cred-scale { margin: 6px 0 0; }
+      .coin-cred-score { font-size: 20px; }
+      .coin-cred-earned { margin-top: 10px; display: flex; flex-direction: column; }
       .coin-detail-rows { display: flex; flex-direction: column; margin-bottom: 14px; }
       .coin-detail-row {
         display: flex; justify-content: space-between; align-items: center;
@@ -9842,6 +9925,17 @@ function GlobalStyles() {
         border-radius: 6px; padding: 1px 6px; vertical-align: middle;
       }
       .ticker-tag-lg { font-size: 12px; padding: 2px 8px; margin-left: 9px; }
+      /* Marketplace Phase Cred ticker states: Meme band (<15) red,
+         Phase band (80+) bright neon green with a glow. Middle bands
+         keep the default .ticker-tag colors above. */
+      .ticker-tag.ticker-meme {
+        color: #d92d20; background: rgba(217,45,32,0.1);
+      }
+      .ticker-tag.ticker-phase {
+        color: #00e676; background: rgba(0,230,118,0.14);
+        text-shadow: 0 0 6px rgba(0,230,118,0.85), 0 0 14px rgba(0,230,118,0.45);
+        box-shadow: 0 0 10px rgba(0,230,118,0.4), inset 0 0 6px rgba(0,230,118,0.22);
+      }
       @media (max-width: 700px) {
         .holdings-row { grid-template-columns: 1fr 1fr; font-size: 12px; }
         .holdings-head { display: none; }
