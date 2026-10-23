@@ -5300,11 +5300,16 @@ const issuerTag = (userId) =>
 // A coin's mark: the issuer's logo image when the coin has one
 // (logoUrl, set on the draft or via the coin-profile PATCH), laid
 // over the ticker-initials tile — a broken or missing logo falls
-// back to the initials.
+// back to the initials. The tile also carries the coin's Phase Cred
+// band (from its legitimacy view, when present): Meme reads red,
+// Phase reads neon green, middle bands keep the default tile. With
+// a logo image the band shows as a ring/tint overlay above the img;
+// with initials the tile itself takes the treatment.
 function CoinAvatar({ coin, large = false }) {
   const initials = String(coin.ticker || "?").slice(0, 2).toUpperCase();
+  const band = avatarCredBand(coin.legitimacy);
   return (
-    <div className={`dir-coin-avatar${large ? " dir-coin-avatar-lg" : ""}`}>
+    <div className={`dir-coin-avatar${large ? " dir-coin-avatar-lg" : ""}${band ? ` avatar-${band}` : ""}`}>
       {initials}
       {coin.logoUrl && (
         <img
@@ -5314,6 +5319,7 @@ function CoinAvatar({ coin, large = false }) {
           onError={(e) => { e.currentTarget.style.display = "none"; }}
         />
       )}
+      {band && <span className={`dir-coin-avatar-fx fx-${band}`} aria-hidden="true" />}
     </div>
   );
 }
@@ -5365,17 +5371,20 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
 }
 
 /* Phase Cred on the marketplace coin detail — the PUBLIC view. The
-   payload's compact legitimacy object (score, band, earned items)
-   comes from the same server scorer as the dashboard card. Only the
-   EARNED proof is listed here: the missing-item hints / climb prompts
-   are the owner's homework and live only in their dashboard. Renders
-   nothing when the backend didn't send a legitimacy view. */
+   payload's compact legitimacy object (score, band, earned items,
+   redFlags) comes from the same server scorer as the dashboard card.
+   Only the EARNED proof is listed here: the missing-item hints /
+   climb prompts are the owner's homework and live only in their
+   dashboard. Red flags ARE public (labels only) — the market seeing
+   why a coin is capped at Meme is the point of the flag system.
+   Renders nothing when the backend didn't send a legitimacy view. */
 function CoinCredBlock({ coin }) {
   const leg = coin.legitimacy;
   if (!leg || typeof leg.score !== "number") return null;
   const score = Math.max(0, Math.min(100, leg.score));
   const band = credBandDisplay(score);
   const earned = Array.isArray(leg.earned) ? leg.earned : [];
+  const redFlags = Array.isArray(leg.redFlags) ? leg.redFlags : [];
   const ringSize = 84;
   return (
     <div className="coin-cred-block">
@@ -5401,6 +5410,13 @@ function CoinCredBlock({ coin }) {
           </span>
         </div>
       </div>
+      {redFlags.length > 0 && (
+        <div className="coin-cred-flags">
+          {redFlags.map((f) => (
+            <div key={f.key} className="coin-cred-flag">⚠ {f.label}</div>
+          ))}
+        </div>
+      )}
       {earned.length > 0 && (
         <div className="coin-cred-earned">
           {earned.map((it) => (
@@ -5537,6 +5553,7 @@ function CompareModal({ coins, onRemove, onClose, onBuy }) {
                 {coins.map((c) => (
                   <th key={c.chainId}>
                     <div className="compare-head">
+                      <CoinAvatar coin={c} />
                       <span className={`ticker-tag${tickerCredClass(c.legitimacy)}`}>{c.ticker}</span>
                       <button className="icon-btn" onClick={() => onRemove(c.chainId)} aria-label={`Remove ${c.ticker}`}>
                         <Icon name="close" size={12} />
@@ -7662,6 +7679,17 @@ function tickerCredClass(legitimacy) {
   return "";
 }
 
+/* Band key for the CoinAvatar treatment, from the same legitimacy
+   score the ticker coloring reads: "meme" (<15) / "phase" (80+) /
+   null (middle bands and score-less coins keep the default tile). */
+function avatarCredBand(legitimacy) {
+  const score = legitimacy?.score;
+  if (typeof score !== "number") return null;
+  if (score < 15) return "meme";
+  if (score >= 80) return "phase";
+  return null;
+}
+
 function PhaseCredRing({ score, size = 108 }) {
   const stroke = 10;
   const r = (size - stroke) / 2;
@@ -7712,6 +7740,7 @@ function LegitimacyCard({ data }) {
   if (!best || !best.legitimacy) return null;
   const { score, groups } = best.legitimacy;
   const bandDisplay = credBandDisplay(score);
+  const redFlags = Array.isArray(best.legitimacy.redFlags) ? best.legitimacy.redFlags : [];
   const nextItem = groups
     .flatMap((g) => g.items)
     .find((it) => !it.done && it.status !== "coming_soon");
@@ -7737,10 +7766,19 @@ function LegitimacyCard({ data }) {
           </span>
         </span>
         <span className="cred-summary">
-          <span className="cred-next-label">{nextItem ? "Next up" : "Checklist"}</span>
-          <span className="cred-next-item">
-            {nextItem ? `+${nextItem.points} ${nextItem.label}` : "Every available step is done"}
-          </span>
+          {redFlags.length > 0 ? (
+            <>
+              <span className="cred-next-label cred-flag-label">⚠ Capped at Meme</span>
+              <span className="cred-next-item cred-flag-item">{redFlags[0].label}</span>
+            </>
+          ) : (
+            <>
+              <span className="cred-next-label">{nextItem ? "Next up" : "Checklist"}</span>
+              <span className="cred-next-item">
+                {nextItem ? `+${nextItem.points} ${nextItem.label}` : "Every available step is done"}
+              </span>
+            </>
+          )}
           <span className="cred-next-cta">{expanded ? "Hide checklist" : "See how to climb"}</span>
         </span>
         <span className={`cred-chevron${expanded ? " cred-chevron-open" : ""}`}>▾</span>
@@ -7751,6 +7789,17 @@ function LegitimacyCard({ data }) {
       </div>
       {expanded && (
         <>
+          {redFlags.length > 0 && (
+            <div className="cred-flags">
+              <span className="stat-label cred-flags-title">Red flags — capped at Meme</span>
+              {redFlags.map((f) => (
+                <div key={f.key} className="cred-flag-row">
+                  <span className="cred-flag-icon">⚠</span>
+                  <span className="cred-flag-text">{f.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="legitimacy-groups">
             {groups.map((g) => (
               <div key={g.key} className="legitimacy-group">
@@ -9040,6 +9089,15 @@ function GlobalStyles() {
       }
       .dir-coin-logo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
       .dir-coin-avatar-lg { width: 48px; height: 48px; font-size: 16px; border-radius: 14px; }
+      /* Phase Cred band treatment on the avatar tile: Meme = red,
+         Phase = neon green glow, middle bands = default tile. The
+         fx overlay (ring + tint) paints above a logo image; the
+         initials tile itself takes the background/color treatment. */
+      .dir-coin-avatar.avatar-meme { background: linear-gradient(135deg, #f97066, #d92d20); color: #ffffff; }
+      .dir-coin-avatar.avatar-phase { box-shadow: 0 0 12px rgba(0,230,118,0.55), 0 0 3px rgba(0,230,118,0.85); }
+      .dir-coin-avatar-fx { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+      .dir-coin-avatar-fx.fx-meme { border: 2px solid rgba(217,45,32,0.95); background: rgba(217,45,32,0.16); }
+      .dir-coin-avatar-fx.fx-phase { border: 2px solid rgba(0,230,118,0.95); background: rgba(0,230,118,0.10); box-shadow: inset 0 0 8px rgba(0,230,118,0.5); }
       .dir-coin-names { min-width: 0; }
       .dir-coin-sub { font-size: 11.5px; opacity: 0.6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .dir-coin-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
@@ -9087,6 +9145,8 @@ function GlobalStyles() {
       .coin-cred-scale { margin: 6px 0 0; }
       .coin-cred-score { font-size: 20px; }
       .coin-cred-earned { margin-top: 10px; display: flex; flex-direction: column; }
+      .coin-cred-flags { margin-top: 10px; display: flex; flex-direction: column; gap: 3px; }
+      .coin-cred-flag { font-size: 12.5px; font-weight: 700; color: #d92d20; }
       .coin-detail-rows { display: flex; flex-direction: column; margin-bottom: 14px; }
       .coin-detail-row {
         display: flex; justify-content: space-between; align-items: center;
@@ -9836,6 +9896,16 @@ function GlobalStyles() {
       .cred-next-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.55; }
       .cred-next-item { font-size: 14.5px; font-weight: 700; }
       .cred-next-cta { font-size: 12.5px; font-weight: 600; color: #00a651; }
+      .cred-flag-label { color: #d92d20; opacity: 1; }
+      .cred-flag-item { color: #d92d20; }
+      .cred-flags {
+        margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+        background: rgba(217,45,32,0.07); border: 1px solid rgba(217,45,32,0.25);
+        display: flex; flex-direction: column; gap: 5px;
+      }
+      .cred-flags-title { color: #d92d20; }
+      .cred-flag-row { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: #d92d20; }
+      .cred-flag-icon { font-size: 12px; }
       .cred-chevron { flex-shrink: 0; font-size: 14px; opacity: 0.55; transition: transform 0.2s ease; }
       .cred-chevron-open { transform: rotate(180deg); }
       .cred-scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.55; font-weight: 600; margin: 10px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
