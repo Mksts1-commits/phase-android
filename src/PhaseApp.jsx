@@ -5424,7 +5424,6 @@ function CoinCredBlock({ coin }) {
             <div key={it.key} className="legitimacy-item legitimacy-item-done">
               <span className="legitimacy-check">✓</span>
               <span className="legitimacy-item-label">{it.label}</span>
-              <span className="legitimacy-points">{it.points} pts</span>
             </div>
           ))}
         </div>
@@ -7780,7 +7779,7 @@ function LegitimacyCard({ data }) {
             <>
               <span className="cred-next-label">{nextItem ? "Next up" : "Checklist"}</span>
               <span className="cred-next-item">
-                {nextItem ? `+${nextItem.points} ${nextItem.label}` : "Every available step is done"}
+                {nextItem ? nextItem.label : "Every available step is done"}
               </span>
             </>
           )}
@@ -7814,7 +7813,6 @@ function LegitimacyCard({ data }) {
                     <div key={it.key} className="legitimacy-item legitimacy-item-done">
                       <span className="legitimacy-check">✓</span>
                       <span className="legitimacy-item-label">{it.label}</span>
-                      <span className="legitimacy-points">{it.points} pts</span>
                     </div>
                   ) : it.status === "coming_soon" ? (
                     <div key={it.key} className="legitimacy-item legitimacy-item-soon">
@@ -7832,7 +7830,6 @@ function LegitimacyCard({ data }) {
                         {it.label}
                         <span className="legitimacy-hint">{it.hint}</span>
                       </span>
-                      <span className="legitimacy-points">+{it.points}</span>
                     </div>
                   )
                 )}
