@@ -8,6 +8,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Phase — Onchain Settlement</title>
+    <script>
+      /* Pre-paint theme: apply the stored theme before React loads so dark
+         mode never flashes light. Default (no stored value) is light. */
+      try {
+        if (localStorage.getItem("phase-theme") === "dark") document.documentElement.setAttribute("data-theme", "dark");
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
