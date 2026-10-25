@@ -129,7 +129,13 @@
 </style>
 </head>
 <body>
-<div style="text-align:center; padding:20px 16px 6px; background:#060a08;"><a href="https://is.gd/mintmycoin" style="color:#00e676; font-size:22px; font-weight:800; text-decoration:none;">mint my coin →</a></div>
+<div class="card" style="margin-top:24px">
+  <h2>🤖 Send your AI agent</h2>
+  <p>Prompt your AI agent — it's that easy!</p>
+  <div id="agent-prompt-text" style="background:#f4f4f4;border-radius:8px;padding:12px;font-size:13px;margin:12px 0;white-space:pre-wrap">mint my coin -->>is.gd/mintmycoin</div>
+  <button id="copy-prompt-btn" class="btn btn-secondary" onclick="copyAgentPrompt()">Copy prompt</button>
+  <div class="bonus-counter" id="bonus-counter">Loading bonus availability…</div>
+</div>
 <div class="hero">
   <video autoplay muted loop playsinline preload="auto">
     <source src="./hero.mp4" type="video/mp4">
@@ -217,13 +223,6 @@
     });
   }
 </script>
-<div class="card" style="margin-top:24px">
-  <h2>🤖 Send your AI agent</h2>
-  <p>Your agent can issue its own blockchain without the app. Copy this prompt, paste it into ChatGPT, Claude, or any AI:</p>
-  <div id="agent-prompt-text" style="background:#f4f4f4;border-radius:8px;padding:12px;font-size:13px;margin:12px 0;white-space:pre-wrap">I want to create my own cryptocurrency on Phase. Go to https://github.com/Mksts1-commits/phase-backend/blob/main/AGENT.md and follow the 6-step issuance flow: signup with my email, generate an Ed25519 wallet locally, create a draft, show me the Issuer Agreement for my explicit acceptance, then sign and mint. Never sign anything without my approval.</div>
-  <button id="copy-prompt-btn" class="btn btn-secondary" onclick="copyAgentPrompt()">Copy prompt</button>
-  <div class="bonus-counter" id="bonus-counter">Loading bonus availability…</div>
-</div>
 <script>
   fetch('https://phase-backend.onrender.com/api/v1/bonus-pool')
     .then(function(r){ return r.json(); })
