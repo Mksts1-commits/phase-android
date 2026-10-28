@@ -200,6 +200,14 @@ const marketApi = {
   // Post-issuance owner editing + per-coin documents (Documentation & Compliance).
   updateCoin: (backendId, patch) =>
     backendFetch(`/coins/${encodeURIComponent(backendId)}`, { method: "PATCH", body: patch }),
+  // Post-mint public-float increase (owner only). Releases retained
+  // shares to the public float; total supply never changes.
+  increaseFloat: (backendId, { shares }, idempotencyKey) =>
+    backendFetch(`/coins/${encodeURIComponent(backendId)}/float/increase`, {
+      method: "POST",
+      body: { shares },
+      idempotencyKey,
+    }),
   listDocs: (backendId) => backendFetch(`/coins/${encodeURIComponent(backendId)}/documents`),
   uploadDoc: (backendId, { filename, mimeType, dataBase64 }) =>
     backendFetch(`/coins/${encodeURIComponent(backendId)}/documents`, {
@@ -1876,6 +1884,129 @@ function EditCoinModal({ coin, onClose, onSaved }) {
   );
 }
 
+/* Increase a coin's public float (owner only): release retained shares
+ * to the public float. Total supply never changes — this only re-splits
+ * it. Settlement is async (mempool → block), so the backend returns
+ * projected numbers; the list refreshes immediately and again a few
+ * seconds later so the confirmed balances show up. Errors surface
+ * verbatim from the backend (403/409/400 messages). */
+function IncreaseFloatModal({ coin, onClose, onDone }) {
+  const [shares, setShares] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+
+  const retained = coin.availableUnits != null ? coin.availableUnits : (coin.retainedShares || 0);
+  const total = coin.totalMinted || 0;
+  // Live float balance; fall back to the total float for backends that
+  // predate floatAvailableUnits (same number when nothing is released).
+  const float = coin.floatAvailableUnits != null
+    ? coin.floatAvailableUnits
+    : (coin.publicFloatUnits != null ? coin.publicFloatUnits : 0);
+  const floatPct = total > 0 ? (float / total) * 100 : null;
+
+  const parsed = /^\d+$/.test(shares.trim()) ? Number(shares.trim()) : NaN;
+  const valid = Number.isInteger(parsed) && parsed > 0 && parsed <= retained;
+  const preview = valid
+    ? {
+        retained: retained - parsed,
+        float: float + parsed,
+        pct: total > 0 ? ((float + parsed) / total) * 100 : null,
+      }
+    : null;
+
+  const confirm = async () => {
+    if (!valid || busy) return;
+    setError("");
+    setBusy(true);
+    try {
+      const res = await marketApi.increaseFloat(
+        coin.backendId,
+        { shares: parsed },
+        `float-${coin.backendId}-${Date.now()}`
+      );
+      setResult(res);
+      onDone();
+    } catch (e) {
+      setError(e.message || "Float increase failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <button className="icon-btn modal-close" onClick={onClose} aria-label="Close">
+          <Icon name="close" size={18} />
+        </button>
+        <h3>Increase float — {coin.ticker || coin.name}</h3>
+        <p className="field-hint">
+          Your signed agreement records the genesis split; a float increase releases your retained
+          shares to the public float. Total supply never changes.
+        </p>
+        <p className="field-hint">
+          Your retained balance: <strong>{retained.toLocaleString()}</strong>
+          {" · "}Current public float: <strong>{float.toLocaleString()}</strong>
+          {floatPct != null && ` (${floatPct.toFixed(2)}% of ${total.toLocaleString()} total)`}
+        </p>
+        {result ? (
+          <>
+            <p className="field-hint">
+              Queued{result.tx_id ? ` — transaction ${result.tx_id}` : ""}. Settlement takes a few
+              seconds; the list refreshes again shortly.
+            </p>
+            <p className="field-hint">
+              Projected public float: <strong>{Number(result.projectedFloatAvailable).toLocaleString()}</strong>
+              {" · "}Projected retained: <strong>{Number(result.projectedRetained).toLocaleString()}</strong>
+              {result.projectedFloatPct != null && ` (${Number(result.projectedFloatPct).toFixed(2)}% float)`}
+            </p>
+            <div className="modal-actions">
+              <button className="btn-primary" type="button" onClick={onClose}>
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="field-label">Shares to release to the public float</label>
+            <input
+              className="text-input"
+              type="text"
+              inputMode="numeric"
+              placeholder={`Whole shares, up to ${retained.toLocaleString()}`}
+              value={shares}
+              onChange={(e) => setShares(e.target.value)}
+            />
+            {preview && (
+              <p className="field-hint">
+                After release — retained: <strong>{preview.retained.toLocaleString()}</strong>
+                {" · "}public float: <strong>{preview.float.toLocaleString()}</strong>
+                {preview.pct != null && ` (${preview.pct.toFixed(2)}% of total)`}
+              </p>
+            )}
+            {shares.trim() !== "" && !valid && (
+              <p className="error-text">
+                Enter a whole number of shares greater than 0 and no more than your retained balance
+                ({retained.toLocaleString()}).
+              </p>
+            )}
+            {error && <p className="error-text">{error}</p>}
+            <div className="modal-actions">
+              <button className="btn-secondary" type="button" onClick={onClose} disabled={busy}>
+                Cancel
+              </button>
+              <button className="btn-primary" type="button" onClick={confirm} disabled={busy || !valid}>
+                {busy ? "Queueing…" : "Release to float"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* Per-coin documents for Documentation & Compliance: upload, list, download, delete. */
 function CoinDocs({ backendId, coinName }) {
   const [docs, setDocs] = useState(null); // null = not loaded yet
@@ -2074,6 +2205,8 @@ function AppInner() {
   const [accountModal, setAccountModal] = useState(null);
   // Coin being edited in the dashboard (null = edit modal closed). Holds the asset row.
   const [editingCoin, setEditingCoin] = useState(null);
+  // Coin whose public float is being increased (null = modal closed). Holds the asset row.
+  const [floatCoin, setFloatCoin] = useState(null);
   // Notice shown on the auth screen (e.g. after account deletion).
   const [authNotice, setAuthNotice] = useState(null);
   // Admin privilege: probed once per login via /admin/me. Non-admins never
@@ -2154,6 +2287,11 @@ function AppInner() {
         realizationRatio: typeof c.realizationRatio === "number" ? c.realizationRatio : null,
         publicFloatUnits: c.publicFloatUnits != null ? Number(c.publicFloatUnits) : null,
         publicFloatSoldUnits: c.publicFloatSoldUnits != null ? Number(c.publicFloatSoldUnits) : null,
+        // Live float balance + cumulative post-mint releases (float
+        // increases). floatAvailableUnits is the float address's live
+        // balance; publicFloatUnits is the total float (genesis + released).
+        floatAvailableUnits: c.floatAvailableUnits != null ? Number(c.floatAvailableUnits) : null,
+        floatReleasedUnits: c.floatReleasedUnits != null ? Number(c.floatReleasedUnits) : null,
       }));
       setAssets((prev) => {
         const filtered = prev.filter((a) => !a.id || !String(a.id).startsWith("coin-") || !a.isOwner);
@@ -2853,6 +2991,7 @@ function AppInner() {
               offerOutbox={offerOutbox}
               onOfferAction={handleOfferAction}
               onEditCoin={setEditingCoin}
+              onFloatCoin={setFloatCoin}
             />
           )
         )}
@@ -2912,6 +3051,21 @@ function AppInner() {
             // Tell the marketplace tab to reload so the new links show immediately.
             window.dispatchEvent(new Event("phase:coins-changed"));
             showToast("Coin updated.");
+          }}
+        />
+      )}
+
+      {floatCoin && (
+        <IncreaseFloatModal
+          coin={floatCoin}
+          onClose={() => setFloatCoin(null)}
+          onDone={() => {
+            // Immediate refresh shows the release; settlement confirms
+            // in the next block (~seconds), so refresh again shortly
+            // after so the confirmed balances show up.
+            refreshMyCoins();
+            setTimeout(() => refreshMyCoins(), 5000);
+            showToast("Float increase queued.");
           }}
         />
       )}
@@ -7902,6 +8056,7 @@ function DashboardTab({
   offerOutbox,
   onOfferAction,
   onEditCoin,
+  onFloatCoin,
 }) {
   const [showFundModal, setShowFundModal] = useState(false);
   // Counter-offer editing state: { offerId, offerUnits, requestUnits }.
@@ -8166,6 +8321,15 @@ function DashboardTab({
                     onClick={() => onEditCoin(a)}
                   >
                     Edit
+                  </button>
+                )}
+                {a.backendId && (
+                  <button
+                    className="btn btn-ghost btn-sm product-edit-btn"
+                    type="button"
+                    onClick={() => onFloatCoin(a)}
+                  >
+                    Float
                   </button>
                 )}
               </div>
