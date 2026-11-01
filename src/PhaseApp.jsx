@@ -1001,7 +1001,7 @@ function Sparkline({ points, width = 96, height = 32, positive = true }) {
       onTouchEnd={() => setHoverX(null)}
     >
       <svg width={width} height={height}>
-        <path d={path} fill="none" stroke={positive ? "#22c55e" : "#d64545"} strokeWidth="2" />
+        <path className="mini-spark-line" d={path} fill="none" stroke={positive ? "#22c55e" : "#d64545"} strokeWidth="2" />
         {idx !== null && (
           <>
             <line
@@ -1186,8 +1186,8 @@ function NetWorthTrendChart({ history, currency, liveFx, width = 320, height = 1
         <path d={linePath} fill="none" stroke={trendUp ? "#00e676" : "#d64545"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
         {points.length > 0 && (
           <>
-            <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r="10" fill="#ffd54a" opacity="0.28" />
-            <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r="4.5" fill="#ffd54a" stroke="white" strokeWidth="1.5" />
+            <circle className="asset-trend-end-halo" cx={points[points.length-1].x} cy={points[points.length-1].y} r="10" fill="#ffd54a" opacity="0.28" />
+            <circle className="asset-trend-end-dot" cx={points[points.length-1].x} cy={points[points.length-1].y} r="4.5" fill="#ffd54a" stroke="white" strokeWidth="1.5" />
           </>
         )}
         {idx !== null && (
@@ -10594,6 +10594,109 @@ function GlobalStyles() {
         background-repeat: no-repeat;
         background-position: left center;
         background-size: 260px 44px;
+      }
+
+      /* ============ Light-mode luminous upgrade (2026-11-01) ============
+         Light mode ONLY: every rule below is scoped to
+         html[data-theme="light"], so dark mode (Freehold) is untouched.
+         Same screens, flows, copy, and numbers — visuals only. */
+
+      /* 1. Frosted-glass cards: more translucent, larger radius, softer
+         layered shadows. Dark keeps its own --glass-* values. */
+      html[data-theme="light"] {
+        --glass-from: rgba(255,255,255,0.66);
+        --glass-to: rgba(238,255,245,0.58);
+      }
+      html[data-theme="light"] .glass-card {
+        border-radius: 28px;
+        border-color: rgba(0,230,118,0.22);
+        box-shadow: 0 18px 44px rgba(11,16,13,0.09),
+                    0 4px 14px rgba(11,16,13,0.05),
+                    inset 0 1px 0 rgba(255,255,255,1);
+      }
+      html[data-theme="light"] .glass-card::before { border-radius: 28px; }
+
+      /* 2. Single luminous green accent: gold highlights become green. */
+      html[data-theme="light"] .bg-circuit .lantern-halo { fill: #00e676; }
+      html[data-theme="light"] .bg-circuit .lantern { fill: #00e676; }
+      html[data-theme="light"] .net-worth-value {
+        text-shadow: 0 0 18px rgba(0,230,118,0.45), 0 0 32px rgba(0,230,118,0.25);
+      }
+      @keyframes phiGlowBreatheLight {
+        0%, 100% {
+          filter: drop-shadow(0 0 3px rgba(0,230,118,0.35)) drop-shadow(0 0 10px rgba(0,230,118,0.20));
+        }
+        50% {
+          filter: drop-shadow(0 0 7px rgba(0,230,118,0.75)) drop-shadow(0 0 18px rgba(0,230,118,0.45)) drop-shadow(0 0 28px rgba(0,230,118,0.30));
+        }
+      }
+      html[data-theme="light"] .top-nav-left .phi-mark-btn,
+      html[data-theme="light"] .chat-launcher .phi-mark-btn,
+      html[data-theme="light"] .splash-logo,
+      html[data-theme="light"] .matrix-logo {
+        animation: phiGlowBreatheLight 4.5s ease-in-out infinite;
+      }
+
+      /* 3. Blueprint circuit backdrop across light-mode surfaces, at the
+         same barely-there restraint as the logo motif (0.08 opacity). */
+      html[data-theme="light"] .bg-grid-inner {
+        background-image:
+          linear-gradient(rgba(0,166,81,0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,166,81,0.04) 1px, transparent 1px),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'%3E%3Cg fill='none' stroke='%2300e676' stroke-opacity='0.08' stroke-width='1'%3E%3Cpath d='M0 120 H180 V240 H480'/%3E%3Cpath d='M360 0 V160 H240 V480'/%3E%3Cpath d='M0 360 H120 V480'/%3E%3Cpath d='M240 0 V60 H480'/%3E%3C/g%3E%3Cg fill='%2300e676' opacity='0.08'%3E%3Ccircle cx='180' cy='120' r='3'/%3E%3Ccircle cx='180' cy='240' r='3'/%3E%3Ccircle cx='360' cy='160' r='3'/%3E%3Ccircle cx='240' cy='160' r='3'/%3E%3Ccircle cx='120' cy='360' r='3'/%3E%3C/g%3E%3C/svg%3E");
+        background-size: 42px 42px, 42px 42px, 480px 480px;
+      }
+
+      /* 4. Bolder, heavier display type in light mode. */
+      html[data-theme="light"] .section-title { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
+      html[data-theme="light"] .stat-value { font-weight: 700; }
+      html[data-theme="light"] .net-worth-value { font-size: 36px; font-weight: 800; }
+      html[data-theme="light"] .price-text-sm { font-weight: 700; }
+
+      /* 5. Green glow sparklines (existing charts only). */
+      html[data-theme="light"] .mini-spark-line { filter: drop-shadow(0 0 3px rgba(0,230,118,0.7)); }
+      html[data-theme="light"] .asset-trend-end-halo { fill: #00e676; }
+      html[data-theme="light"] .asset-trend-end-dot { fill: #00e676; filter: drop-shadow(0 0 4px rgba(0,230,118,0.9)); }
+
+      /* Live dots: luminous green pulse in light mode. */
+      html[data-theme="light"] .online-dot {
+        background: #00e676;
+        box-shadow: 0 0 0 3px rgba(0,230,118,0.20), 0 0 10px rgba(0,230,118,0.65);
+      }
+
+      /* 6. "Ask Phi" floating pill (light mode only). The button still
+         opens the existing Phi panel; only its shape/label change. */
+      html[data-theme="light"] .chat-launcher {
+        width: auto; height: 56px; padding: 0 20px 0 14px; border-radius: 999px; gap: 10px;
+      }
+      html[data-theme="light"] .chat-launcher::after {
+        content: "Ask Phi";
+        font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800;
+        letter-spacing: -0.01em; color: #0b100d;
+      }
+      html[data-theme="light"] .chat-launcher-open { width: 56px; padding: 0; }
+      html[data-theme="light"] .chat-launcher-open::after { content: none; }
+
+      /* 7. Green-dot sliders: luminous track + glowing dot in light mode. */
+      html[data-theme="light"] .range-input::-webkit-slider-runnable-track {
+        height: 8px; border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0,230,118,0.55), rgba(0,230,118,0.18));
+      }
+      html[data-theme="light"] .range-input::-moz-range-track {
+        height: 8px; border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0,230,118,0.55), rgba(0,230,118,0.18));
+      }
+      html[data-theme="light"] .range-input::-webkit-slider-thumb {
+        width: 24px; height: 24px; margin-top: -8px;
+        background: radial-gradient(circle at 35% 35%, #ffffff, #00e676 70%);
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 10px rgba(11,16,13,0.22), 0 0 0 5px rgba(0,230,118,0.20), 0 0 12px rgba(0,230,118,0.55);
+      }
+      html[data-theme="light"] .range-input::-moz-range-thumb {
+        width: 24px; height: 24px;
+        background: radial-gradient(circle at 35% 35%, #ffffff, #00e676 70%);
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 10px rgba(11,16,13,0.22), 0 0 0 5px rgba(0,230,118,0.20), 0 0 12px rgba(0,230,118,0.55);
       }
 
 `}</style>
