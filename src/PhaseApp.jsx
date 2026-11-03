@@ -969,22 +969,39 @@ function PhiMark({ size = 36, animated = true, onClick, title }) {
 
 /* ------------------------------ Mini Sparkline ----------------------------- */
 
-function Sparkline({ points, width = 96, height = 32, positive = true }) {
-  if (!points || points.length < 2) return null;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
+/* Volume-accent graph support (2026-11-03 spec): `stroke` overrides the
+   green/red direction colour with the coin's volume-tier colour, and a
+   single known price (or `flatValue` with no series) draws as a flat line
+   at mid-height — honest for a single trade or an untraded ask, never
+   dressed up as history. Existing callers without these props behave
+   exactly as before. */
+function Sparkline({ points, width = 96, height = 32, positive = true, stroke = null, flatValue = null }) {
+  const lineColor = stroke || (positive ? "#22c55e" : "#d64545");
+  let pts = points;
+  if ((!pts || pts.length === 0) && flatValue != null) pts = [flatValue];
+  if (!pts || pts.length === 0) return null;
+  if (pts.length === 1) {
+    return (
+      <svg width={width} height={height}>
+        <path d={`M0,${(height / 2).toFixed(1)} L${width},${(height / 2).toFixed(1)}`} fill="none" stroke={lineColor} strokeWidth="2" />
+      </svg>
+    );
+  }
+  const min = Math.min(...pts);
+  const max = Math.max(...pts);
   const range = max - min || 1;
-  const stepX = width / (points.length - 1);
-  const path = points
+  const stepX = width / (pts.length - 1);
+  const yFor = (p) => (max === min ? height / 2 : height - ((p - min) / range) * height);
+  const path = pts
     .map((p, i) => {
       const x = i * stepX;
-      const y = height - ((p - min) / range) * height;
+      const y = yFor(p);
       return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
   const [hoverX, setHoverX] = useState(null);
   const idx =
-    hoverX !== null ? clamp(Math.round(hoverX / stepX), 0, points.length - 1) : null;
+    hoverX !== null ? clamp(Math.round(hoverX / stepX), 0, pts.length - 1) : null;
 
   return (
     <div
@@ -1001,7 +1018,7 @@ function Sparkline({ points, width = 96, height = 32, positive = true }) {
       onTouchEnd={() => setHoverX(null)}
     >
       <svg width={width} height={height}>
-        <path className="mini-spark-line" d={path} fill="none" stroke={positive ? "#22c55e" : "#d64545"} strokeWidth="2" />
+        <path className="mini-spark-line" d={path} fill="none" stroke={lineColor} strokeWidth="2" />
         {idx !== null && (
           <>
             <line
@@ -1014,16 +1031,16 @@ function Sparkline({ points, width = 96, height = 32, positive = true }) {
             />
             <circle
               cx={idx * stepX}
-              cy={height - ((points[idx] - min) / range) * height}
+              cy={yFor(pts[idx])}
               r="3"
-              fill={positive ? "#22c55e" : "#d64545"}
+              fill={lineColor}
             />
           </>
         )}
       </svg>
       {idx !== null && (
         <div className="spark-tooltip" style={{ left: clamp(idx * stepX, 12, width - 12) }}>
-          {points[idx].toFixed(2)}
+          {pts[idx].toFixed(2)}
         </div>
       )}
     </div>
@@ -2292,6 +2309,11 @@ function AppInner() {
         // balance; publicFloatUnits is the total float (genesis + released).
         floatAvailableUnits: c.floatAvailableUnits != null ? Number(c.floatAvailableUnits) : null,
         floatReleasedUnits: c.floatReleasedUnits != null ? Number(c.floatReleasedUnits) : null,
+        // Volume accent (2026-11-03 spec): passthrough from the my-coins
+        // payload so dashboard holdings rows accent like marketplace rows.
+        volumeTier: c.volumeTier ?? null,
+        volumePctFloat: typeof c.volumePctFloat === "number" ? c.volumePctFloat : null,
+        priceSeries30d: Array.isArray(c.priceSeries30d) ? c.priceSeries30d : null,
       }));
       setAssets((prev) => {
         const filtered = prev.filter((a) => !a.id || !String(a.id).startsWith("coin-") || !a.isOwner);
@@ -5491,9 +5513,36 @@ const issuerTag = (userId) =>
 // over the ticker-initials tile — a broken or missing logo falls
 // back to the initials. The tile also carries the coin's Phase Cred
 // band (from its legitimacy view, when present): Meme reads red,
-// Phase reads blue, middle bands keep the default tile. With
+// Phase reads strong gold, middle bands keep the default tile. With
 // a logo image the band shows as a ring/tint overlay above the img;
 // with initials the tile itself takes the treatment.
+/* ---------------- Volume accent (2026-11-03 spec) ----------------
+   Price-number accent by trailing-30-day traded shares as % of float,
+   from the backend's volumeTier / volumePctFloat / priceSeries30d fields.
+   A null tier means the backend sent no volume data → NO accent (never
+   a false red). The accent touches the price number only — avatar,
+   ticker, and Cred band colours are a separate system. */
+const VOL_TIER_COLORS = { none: "#d92d20", pale: "#c9a44a", gold: "#d4af37", strong: "#eab308" };
+function volTierClass(tier) { return tier ? ` vol-tier-${tier}` : ""; }
+function volTierColor(tier) { return tier ? VOL_TIER_COLORS[tier] : null; }
+function volTitle(coin) {
+  if (coin.volumeTier === "none") return "Asking price · no trades yet";
+  if (coin.volumeTier != null && typeof coin.volumePctFloat === "number") {
+    return `${coin.volumePctFloat.toFixed(2)}% of float traded in the last 30 days`;
+  }
+  return undefined;
+}
+// Graph inputs for a coin with volume data: the real last-30-trades series
+// stroked in the tier colour, or a flat red line at the asking price when
+// untraded. Returns null when the backend sent no volume data, so the row
+// keeps whatever it rendered before.
+function volGraph(coin, price) {
+  if (coin.volumeTier == null) return null;
+  const series = Array.isArray(coin.priceSeries30d) ? coin.priceSeries30d : [];
+  if (series.length > 0) return { points: series, stroke: volTierColor(coin.volumeTier), flatValue: null };
+  return { points: [], stroke: "#d92d20", flatValue: price };
+}
+
 function CoinAvatar({ coin, large = false }) {
   const initials = String(coin.ticker || "?").slice(0, 2).toUpperCase();
   const band = avatarCredBand(coin.legitimacy);
@@ -5519,6 +5568,7 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
   const credBand = avatarCredBand(coin.legitimacy);
   const mcap = (Number(coin.priceUsd) || 0) * (Number(coin.supply) || 0);
   const floatAvail = coin.floatAvailable != null ? Number(coin.floatAvailable) : null;
+  const vg = volGraph(coin, Number(coin.priceUsd) || 0);
   return (
     <div className="glass-card dir-coin-card">
       <button className="dir-coin-main" onClick={onDetail} aria-label={`Details for ${coin.name}`}>
@@ -5538,9 +5588,11 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
           </div>
         </div>
         <div className="dir-coin-stats">
-          <span className="price-text-sm">${(Number(coin.priceUsd) || 0).toFixed(2)}</span>
+          <span className={`price-text-sm${volTierClass(coin.volumeTier)}`} title={volTitle(coin)}>${(Number(coin.priceUsd) || 0).toFixed(2)}</span>
+          {coin.volumeTier === "none" && <span className="dir-coin-ask">asking price · no trades yet</span>}
           <span className="dir-coin-mcap">MCap ${formatCount(mcap)}</span>
           {floatAvail != null && <span className="dir-coin-float">{formatCount(floatAvail)} available</span>}
+          {vg && <Sparkline points={vg.points} flatValue={vg.flatValue} stroke={vg.stroke} width={96} height={20} />}
         </div>
       </button>
       <div className="dir-coin-actions">
@@ -7861,7 +7913,7 @@ function credBandDisplay(score) {
 }
 
 /* Marketplace ticker coloring from the coin's Phase Cred score:
-   Meme band (<15) reads red, Phase band (80+) reads blue,
+   Meme band (<15) reads red, Phase band (80+) reads strong gold,
    middle bands keep the default tag color. Returns "" when the coin
    carries no legitimacy view (older backend) so nothing changes. */
 function tickerCredClass(legitimacy) {
@@ -7900,7 +7952,7 @@ function PhaseCredRing({ score, size = 108 }) {
         <linearGradient id="cred-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#f59e0b" />
           <stop offset="55%" stopColor="#4db6a4" />
-          <stop offset="100%" stopColor="#2f7bff" />
+          <stop offset="100%" stopColor="#eab308" />
         </linearGradient>
       </defs>
       <circle
@@ -8234,6 +8286,7 @@ function DashboardTab({
                 const changePct =
                   ((h.asset.price - h.asset.prevPrice) / h.asset.prevPrice) * 100;
                 const positive = changePct >= 0;
+                const vg = volGraph(h.asset, h.asset.price);
                 return (
                   <div className="holdings-row" key={h.assetId}>
                     <div className="holdings-name-cell">
@@ -8243,14 +8296,16 @@ function DashboardTab({
                       </span>
                       <span className="holdings-category-tag">{ASSET_CATEGORIES[h.asset.category].label}</span>
                     </div>
-                    <span>{formatCurrency(h.asset.price, currency, liveFx)}</span>
+                    <span className={volTierClass(h.asset.volumeTier).trim() || undefined} title={volTitle(h.asset)}>{formatCurrency(h.asset.price, currency, liveFx)}</span>
                     <span className={positive ? "price-up" : "price-down"}>
                       {positive ? "+" : ""}
                       {changePct.toFixed(2)}%
                     </span>
                     <span>{h.units.toFixed(3)} sh</span>
                     <span>{formatCurrency(h.currentValueUsd, currency, liveFx)}</span>
-                    <Sparkline points={h.asset.history} width={72} height={26} positive={positive} />
+                    {vg
+                      ? <Sparkline points={vg.points} flatValue={vg.flatValue} stroke={vg.stroke} width={72} height={26} />
+                      : <Sparkline points={h.asset.history} width={72} height={26} positive={positive} />}
                   </div>
                 );
               })}
@@ -9325,14 +9380,16 @@ function GlobalStyles() {
       .dir-coin-logo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
       .dir-coin-avatar-lg { width: 48px; height: 48px; font-size: 16px; border-radius: 14px; }
       /* Phase Cred band treatment on the avatar tile: Meme = red,
-         Phase = blue, middle bands = default tile. The
+         Phase = strong gold (2026-11-03: the PHASE band's blue became
+         gold so the top end of both systems reads strong gold),
+         middle bands = default tile. The
          fx overlay (ring + tint) paints above a logo image; the
          initials tile itself takes the background/color treatment. */
       .dir-coin-avatar.avatar-meme { background: linear-gradient(135deg, #f97066, #d92d20); color: #ffffff; }
-      .dir-coin-avatar.avatar-phase { background: linear-gradient(135deg, #5ea0ff, #2f7bff); color: #ffffff; box-shadow: 0 0 12px rgba(47,123,255,0.45), 0 0 3px rgba(47,123,255,0.7); }
+      .dir-coin-avatar.avatar-phase { background: linear-gradient(135deg, #f6c945, #eab308); color: #231a00; box-shadow: 0 0 12px rgba(234,179,8,0.45), 0 0 3px rgba(234,179,8,0.7); }
       .dir-coin-avatar-fx { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
       .dir-coin-avatar-fx.fx-meme { border: 2px solid rgba(217,45,32,0.95); background: rgba(217,45,32,0.16); }
-      .dir-coin-avatar-fx.fx-phase { border: 2px solid rgba(47,123,255,0.95); background: rgba(47,123,255,0.12); box-shadow: inset 0 0 8px rgba(47,123,255,0.45); }
+      .dir-coin-avatar-fx.fx-phase { border: 2px solid rgba(234,179,8,0.95); background: rgba(234,179,8,0.12); box-shadow: inset 0 0 8px rgba(234,179,8,0.45); }
       .dir-coin-names { min-width: 0; }
       .dir-coin-sub { font-size: 11.5px; opacity: 0.6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .dir-coin-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
@@ -9341,12 +9398,13 @@ function GlobalStyles() {
       .dir-coin-actions { display: flex; gap: 8px; margin-top: 10px; }
       .dir-buy-btn { flex: 1; text-align: center; }
       /* Band-themed Buy buttons across the marketplace (directory,
-         detail, compare): Meme = red, Phase = blue, white text on
-         both; middle bands keep the default pill treatment. */
+         detail, compare): Meme = red, Phase = strong gold (dark text
+         on gold for legibility); middle bands keep the default pill
+         treatment. */
       .pill-btn.buy-meme { background: #d92d20; border-color: #d92d20; color: #ffffff; }
       .pill-btn.buy-meme:hover { background: #b42318; border-color: #b42318; color: #ffffff; }
-      .pill-btn.buy-phase { background: #2f7bff; border-color: #2f7bff; color: #ffffff; }
-      .pill-btn.buy-phase:hover { background: #1f66e0; border-color: #1f66e0; color: #ffffff; }
+      .pill-btn.buy-phase { background: #eab308; border-color: #eab308; color: #231a00; }
+      .pill-btn.buy-phase:hover { background: #c99a06; border-color: #c99a06; color: #231a00; }
 
       .market-browse-divider {
         display: flex; align-items: center; gap: 12px; margin: 6px 0 16px;
@@ -10075,6 +10133,23 @@ function GlobalStyles() {
       .asset-list-row-price { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
       .asset-list-row-chevron { flex-shrink: 0; opacity: 0.5; }
       .price-text-sm { font-family: 'IBM Plex Mono'; font-size: 14px; font-weight: 600; white-space: nowrap; }
+      /* Volume-accent price tiers (2026-11-03 spec): the price number
+         only. Golds are stated here AND under html[data-theme="light"]
+         so they read as gold in both themes — the light luminous upgrade
+         turns other gold highlights green, and these classes are exempt
+         from that mapping by design. */
+      .vol-tier-none { color: #d92d20; }
+      .vol-tier-pale { color: #c9a44a; }
+      .vol-tier-gold { color: #d4af37; }
+      .vol-tier-strong { color: #eab308; }
+      .dir-coin-ask { font-size: 11px; color: #d92d20; white-space: nowrap; }
+      html[data-theme="light"] .vol-tier-none { color: #d92d20; }
+      html[data-theme="light"] .vol-tier-pale { color: #a8862a; }
+      html[data-theme="light"] .vol-tier-gold { color: #b8912a; }
+      html[data-theme="light"] .vol-tier-strong { color: #9c7a00; }
+      html[data-theme="light"] .dir-coin-ask { color: #d92d20; }
+      html[data-theme="light"] .cred-scale-labels .cred-pole-phase { color: #9c7a00; }
+      html[data-theme="light"] .ticker-tag.ticker-phase { color: #9c7a00; }
       .owner-badge { background: var(--violet); color: #0b100d; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 8px; flex-shrink: 0; }
       .asset-tagline { font-size: 12.5px; opacity: 0.7; line-height: 1.5; margin: 0; }
       .asset-card-stats { display: flex; gap: 18px; }
@@ -10151,7 +10226,7 @@ function GlobalStyles() {
       .cred-chevron { flex-shrink: 0; font-size: 14px; opacity: 0.55; transition: transform 0.2s ease; }
       .cred-chevron-open { transform: rotate(180deg); }
       .cred-scale-labels { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.55; font-weight: 600; margin: 10px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
-      .cred-scale-labels .cred-pole-phase { color: #2f7bff; }
+      .cred-scale-labels .cred-pole-phase { color: #eab308; }
       .legitimacy-groups { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
       .legitimacy-group .stat-label { margin-bottom: 6px; }
       .legitimacy-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; padding: 3px 0; }
@@ -10239,13 +10314,13 @@ function GlobalStyles() {
       }
       .ticker-tag-lg { font-size: 12px; padding: 2px 8px; margin-left: 9px; }
       /* Marketplace Phase Cred ticker states: Meme band (<15) red,
-         Phase band (80+) blue on a soft blue wash. Middle bands
+         Phase band (80+) strong gold on a soft gold wash. Middle bands
          keep the default .ticker-tag colors above. */
       .ticker-tag.ticker-meme {
         color: #d92d20; background: rgba(217,45,32,0.1);
       }
       .ticker-tag.ticker-phase {
-        color: #2f7bff; background: rgba(47,123,255,0.12);
+        color: #eab308; background: rgba(234,179,8,0.12);
       }
       @media (max-width: 700px) {
         .holdings-row { grid-template-columns: 1fr 1fr; font-size: 12px; }
