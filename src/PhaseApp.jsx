@@ -975,14 +975,14 @@ function PhiMark({ size = 36, animated = true, onClick, title }) {
    at mid-height — honest for a single trade or an untraded ask, never
    dressed up as history. Existing callers without these props behave
    exactly as before. */
-function Sparkline({ points, width = 96, height = 32, positive = true, stroke = null, flatValue = null }) {
+function Sparkline({ points, width = 96, height = 32, positive = true, stroke = null, flatValue = null, fluid = false }) {
   const lineColor = stroke || (positive ? "#22c55e" : "#d64545");
   let pts = points;
   if ((!pts || pts.length === 0) && flatValue != null) pts = [flatValue];
   if (!pts || pts.length === 0) return null;
   if (pts.length === 1) {
     return (
-      <svg width={width} height={height}>
+      <svg width={width} height={height} viewBox={fluid ? `0 0 ${width} ${height}` : undefined} style={fluid ? { width: "100%", height: "auto", display: "block" } : undefined}>
         <path d={`M0,${(height / 2).toFixed(1)} L${width},${(height / 2).toFixed(1)}`} fill="none" stroke={lineColor} strokeWidth="2" />
       </svg>
     );
@@ -1005,19 +1005,19 @@ function Sparkline({ points, width = 96, height = 32, positive = true, stroke = 
 
   return (
     <div
-      style={{ position: "relative", width, height }}
+      style={{ position: "relative", width: fluid ? "100%" : width, height: fluid ? "auto" : height }}
       onMouseMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        setHoverX(e.clientX - rect.left);
+        setHoverX((e.clientX - rect.left) * (fluid ? width / rect.width : 1));
       }}
       onMouseLeave={() => setHoverX(null)}
       onTouchMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        setHoverX(e.touches[0].clientX - rect.left);
+        setHoverX((e.touches[0].clientX - rect.left) * (fluid ? width / rect.width : 1));
       }}
       onTouchEnd={() => setHoverX(null)}
     >
-      <svg width={width} height={height}>
+      <svg width={width} height={height} viewBox={fluid ? `0 0 ${width} ${height}` : undefined} style={fluid ? { width: "100%", height: "auto", display: "block" } : undefined}>
         <path className="mini-spark-line" d={path} fill="none" stroke={lineColor} strokeWidth="2" />
         {idx !== null && (
           <>
@@ -1038,13 +1038,28 @@ function Sparkline({ points, width = 96, height = 32, positive = true, stroke = 
           </>
         )}
       </svg>
-      {idx !== null && (
+      {idx !== null && !fluid && (
         <div className="spark-tooltip" style={{ left: clamp(idx * stepX, 12, width - 12) }}>
           {pts[idx].toFixed(2)}
         </div>
       )}
     </div>
   );
+}
+
+/* Modal scroll reset (2026-11-03 fix): modal cards are taller than phone
+   viewports, and .modal-card used to have no max-height or overflow, so a
+   tall card was vertically centred with its top pushed off-screen — the
+   detail, buy, and compare views all opened "all the way down" instead of
+   at the top. The .modal-card max-height/overflow below makes the card
+   internally scrollable, and this effect guarantees each of those views
+   opens at scroll position 0. Content and order are untouched. */
+function useModalTop() {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0;
+  }, []);
+  return ref;
 }
 
 /* ------------------------------ Allocation Donut --------------------------- */
@@ -5675,10 +5690,12 @@ function CoinCredBlock({ coin }) {
 
 // Full key information for one coin — everything needed to decide.
 function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
+  const topRef = useModalTop();
   const mcap = (Number(coin.priceUsd) || 0) * (Number(coin.supply) || 0);
   const floatAvail = coin.floatAvailable != null ? Number(coin.floatAvailable) : null;
   const credBand = avatarCredBand(coin.legitimacy);
   const issuedOn = coin.createdAt ? new Date(coin.createdAt).toLocaleDateString() : "—";
+  const detailGraph = volGraph(coin, Number(coin.priceUsd) || 0);
   const rows = [
     ["Price per coin", `$${(Number(coin.priceUsd) || 0).toFixed(2)}`],
     ["Market cap", `$${formatCount(mcap)}`],
@@ -5692,7 +5709,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
   ];
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card coin-detail-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card coin-detail-modal" ref={topRef} onClick={(e) => e.stopPropagation()}>
         <button className="icon-btn modal-close" onClick={onClose}>
           <Icon name="close" size={18} />
         </button>
@@ -5707,6 +5724,16 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
             </p>
           </div>
         </div>
+        {detailGraph && (
+          <div className="coin-detail-graph">
+            <div className="coin-detail-graph-head">
+              <span className="coin-detail-section-label">Price · last 30 trades</span>
+              <span className={`price-text-sm${volTierClass(coin.volumeTier)}`}>${(Number(coin.priceUsd) || 0).toFixed(2)}</span>
+            </div>
+            <Sparkline points={detailGraph.points} flatValue={detailGraph.flatValue} stroke={detailGraph.stroke} width={320} height={64} fluid />
+            {coin.volumeTier === "none" && <span className="dir-coin-ask">asking price · no trades yet</span>}
+          </div>
+        )}
         {(coin.tagline || coin.valueThesis) && (
           <div className="coin-detail-about">
             {coin.tagline && <p className="coin-detail-tagline">{coin.tagline}</p>}
@@ -5768,6 +5795,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
 
 // Side-by-side comparison of up to 3 coins.
 function CompareModal({ coins, onRemove, onClose, onBuy }) {
+  const topRef = useModalTop();
   const mcap = (c) => (Number(c.priceUsd) || 0) * (Number(c.supply) || 0);
   const rows = [
     ["Price", (c) => `$${(Number(c.priceUsd) || 0).toFixed(2)}`],
@@ -5781,7 +5809,7 @@ function CompareModal({ coins, onRemove, onClose, onBuy }) {
   ];
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card compare-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card compare-modal" ref={topRef} onClick={(e) => e.stopPropagation()}>
         <button className="icon-btn modal-close" onClick={onClose}>
           <Icon name="close" size={18} />
         </button>
@@ -6694,6 +6722,7 @@ function FinancialsModal({ asset, currency, liveFx, onClose, onInvest }) {
 const QUICK_AMOUNTS = [10, 25, 50, 100, 250];
 
 function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, sovereignAddress, myCoins, onTopup, onClose, onInvest, onInvestSwap }) {
+  const topRef = useModalTop();
   const [amount, setAmount] = useState("");
   const [usePhase, setUsePhase] = useState(true);
   const [payCurrency, setPayCurrency] = useState("usd");
@@ -6853,7 +6882,7 @@ function InvestModal({ asset, phaseCoins, cashBalances, liveFx, tradeCashUsd, so
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card invest-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card invest-modal" ref={topRef} onClick={(e) => e.stopPropagation()}>
         <button className="icon-btn modal-close" onClick={onClose}>
           <Icon name="close" size={18} />
         </button>
@@ -9427,6 +9456,12 @@ function GlobalStyles() {
       /* ---------------- Coin detail + compare ---------------- */
       .coin-detail-head { margin-bottom: 14px; }
       .coin-detail-head h3 { margin: 0; font-size: 17px; }
+      /* Upfront price graph in the coin detail sheet (2026-11-03): real
+         last-30-trades series in the volume-tier colour, or a flat red line
+         at the asking price for untraded coins — same volGraph helper as
+         the marketplace rows, never a fabricated series. */
+      .coin-detail-graph { margin: 0 0 14px; }
+      .coin-detail-graph-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
       .coin-detail-about { margin-bottom: 12px; }
       .coin-detail-tagline { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
       .coin-detail-thesis { font-size: 13px; line-height: 1.55; opacity: 0.8; margin: 0; white-space: pre-wrap; }
@@ -10480,6 +10515,12 @@ function GlobalStyles() {
         padding: 30px; max-width: 420px; width: 100%; position: relative;
         box-shadow: 0 24px 64px rgba(11,16,13,0.14);
         animation: modalPop 0.3s ease;
+        /* 2026-11-03 fix: tall cards used to overflow the viewport with no
+           scroll, so flex centring pushed their tops off-screen and the
+           detail/buy/compare views opened "all the way down". The card now
+           scrolls internally and always opens at the top (see useModalTop). */
+        max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+        overflow-y: auto; overscroll-behavior: contain;
       }
       @keyframes modalPop { from { transform: scale(0.92) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
       .modal-close { position: absolute; top: 16px; right: 16px; }
