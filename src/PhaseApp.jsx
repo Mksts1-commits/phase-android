@@ -975,33 +975,51 @@ function PhiMark({ size = 36, animated = true, onClick, title }) {
    at mid-height — honest for a single trade or an untraded ask, never
    dressed up as history. Existing callers without these props behave
    exactly as before. */
-function Sparkline({ points, width = 96, height = 32, positive = true, stroke = null, flatValue = null, fluid = false }) {
+function Sparkline({ points, width = 96, height = 32, positive = true, stroke = null, flatValue = null, fluid = false, ghostPoints = null, ghostStroke = "#94a3b8" }) {
   const lineColor = stroke || (positive ? "#22c55e" : "#d64545");
   let pts = points;
   if ((!pts || pts.length === 0) && flatValue != null) pts = [flatValue];
   if (!pts || pts.length === 0) return null;
-  if (pts.length === 1) {
+  // Ghost line (2026-11-03): dotted swap-implied series drawn on the SAME
+  // scale as the solid line. Only real swap points are ever passed in —
+  // no swaps means an empty array, never invented points.
+  const ghost = Array.isArray(ghostPoints) ? ghostPoints.filter((p) => Number.isFinite(p)) : [];
+  if (pts.length === 1 && ghost.length === 0) {
     return (
       <svg width={width} height={height} viewBox={fluid ? `0 0 ${width} ${height}` : undefined} style={fluid ? { width: "100%", height: "auto", display: "block" } : undefined}>
         <path d={`M0,${(height / 2).toFixed(1)} L${width},${(height / 2).toFixed(1)}`} fill="none" stroke={lineColor} strokeWidth="2" />
       </svg>
     );
   }
-  const min = Math.min(...pts);
-  const max = Math.max(...pts);
+  const all = ghost.length > 0 ? [...pts, ...ghost] : pts;
+  const min = Math.min(...all);
+  const max = Math.max(...all);
   const range = max - min || 1;
-  const stepX = width / (pts.length - 1);
+  const stepX = pts.length > 1 ? width / (pts.length - 1) : width;
   const yFor = (p) => (max === min ? height / 2 : height - ((p - min) / range) * height);
-  const path = pts
-    .map((p, i) => {
-      const x = i * stepX;
-      const y = yFor(p);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  // A single solid point (flat ask-line) sits at its true value on the
+  // shared scale once a ghost series exists, instead of mid-height.
+  const path = pts.length === 1
+    ? `M0,${yFor(pts[0]).toFixed(1)} L${width},${yFor(pts[0]).toFixed(1)}`
+    : pts
+      .map((p, i) => {
+        const x = i * stepX;
+        const y = yFor(p);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+  const ghostPath = ghost.length > 1
+    ? ghost
+      .map((p, i) => {
+        const x = i * (width / (ghost.length - 1));
+        const y = yFor(p);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ")
+    : null;
   const [hoverX, setHoverX] = useState(null);
   const idx =
-    hoverX !== null ? clamp(Math.round(hoverX / stepX), 0, pts.length - 1) : null;
+    hoverX !== null && pts.length > 1 ? clamp(Math.round(hoverX / stepX), 0, pts.length - 1) : null;
 
   return (
     <div
@@ -1019,6 +1037,12 @@ function Sparkline({ points, width = 96, height = 32, positive = true, stroke = 
     >
       <svg width={width} height={height} viewBox={fluid ? `0 0 ${width} ${height}` : undefined} style={fluid ? { width: "100%", height: "auto", display: "block" } : undefined}>
         <path className="mini-spark-line" d={path} fill="none" stroke={lineColor} strokeWidth="2" />
+        {ghostPath && (
+          <path className="mini-spark-ghost" d={ghostPath} fill="none" stroke={ghostStroke} strokeWidth="2" strokeDasharray="4 3" />
+        )}
+        {ghost.length === 1 && (
+          <circle cx={width} cy={yFor(ghost[0])} r="3" fill={ghostStroke} />
+        )}
         {idx !== null && (
           <>
             <line
@@ -2214,6 +2238,17 @@ function AppInner() {
     } catch {}
     return "golive";
   });
+  // Unified-chart handoff (2026-11-03): a dashboard row tap records the
+  // coin's chain id and switches to the marketplace tab, where
+  // MarketplaceTab opens the SAME CoinDetailModal for it. The modal (and
+  // its Buy flow) stays in MarketplaceTab, so Buy/Compare keep working
+  // exactly as they do from a marketplace row.
+  const [pendingDetailChainId, setPendingDetailChainId] = useState(null);
+  const openCoinDetail = useCallback((chainId) => {
+    if (!chainId) return;
+    setPendingDetailChainId(chainId);
+    setActiveTab("market");
+  }, []);
   const [authUser, setAuthUser] = useState(() => getAuthUser());
   // Theme: light default; dark doubles as battery-save mode. Persisted in
   // localStorage and applied to <html data-theme> so GlobalStyles flips.
@@ -2329,6 +2364,7 @@ function AppInner() {
         volumeTier: c.volumeTier ?? null,
         volumePctFloat: typeof c.volumePctFloat === "number" ? c.volumePctFloat : null,
         priceSeries30d: Array.isArray(c.priceSeries30d) ? c.priceSeries30d : null,
+        ghostSeries30d: Array.isArray(c.ghostSeries30d) ? c.ghostSeries30d : null,
       }));
       setAssets((prev) => {
         const filtered = prev.filter((a) => !a.id || !String(a.id).startsWith("coin-") || !a.isOwner);
@@ -2523,6 +2559,12 @@ function AppInner() {
                 units: totalUnits,
                 priceUsd: Number(c.priceUsd) || 0,
                 category: c.category || "socialMedia",
+                // Volume + ghost passthrough from the directory coin so
+                // these rows chart and accent like marketplace rows.
+                volumeTier: c.volumeTier ?? null,
+                volumePctFloat: typeof c.volumePctFloat === "number" ? c.volumePctFloat : null,
+                priceSeries30d: Array.isArray(c.priceSeries30d) ? c.priceSeries30d : null,
+                ghostSeries30d: Array.isArray(c.ghostSeries30d) ? c.ghostSeries30d : null,
               };
             }
             return null;
@@ -2994,6 +3036,8 @@ function AppInner() {
               await refreshTradeBalances();
             }}
             coinHoldings={coinHoldings}
+            pendingDetailChainId={pendingDetailChainId}
+            onPendingDetailConsumed={() => setPendingDetailChainId(null)}
           />
         )}
         {activeTab === "dashboard" && authUser && (
@@ -3029,6 +3073,7 @@ function AppInner() {
               onOfferAction={handleOfferAction}
               onEditCoin={setEditingCoin}
               onFloatCoin={setFloatCoin}
+              onOpenCoinDetail={openCoinDetail}
             />
           )
         )}
@@ -5558,6 +5603,30 @@ function volGraph(coin, price) {
   return { points: [], stroke: "#d92d20", flatValue: price };
 }
 
+// Unified coin chart (2026-11-03 ghost-line design): ONE component for
+// every surface. Rows render the solid mini-graph only; the detail sheet
+// renders the full chart with the dotted ghost line + legend. The ghost
+// series is swap-implied only and is drawn only when non-empty — no swaps
+// means no ghost line, never an invented one.
+function CoinChart({ coin, price, width = 96, height = 20, fluid = false, full = false }) {
+  const vg = volGraph(coin, price);
+  if (!vg) return null;
+  const ghost = full && Array.isArray(coin.ghostSeries30d) && coin.ghostSeries30d.length > 0
+    ? coin.ghostSeries30d
+    : null;
+  return (
+    <>
+      <Sparkline points={vg.points} flatValue={vg.flatValue} stroke={vg.stroke} width={width} height={height} fluid={fluid} ghostPoints={ghost} />
+      {ghost && (
+        <div className="coin-chart-legend">
+          <span className="legend-solid">— cash price</span>
+          <span className="legend-ghost">··· swap-implied (ghost)</span>
+        </div>
+      )}
+    </>
+  );
+}
+
 function CoinAvatar({ coin, large = false }) {
   const initials = String(coin.ticker || "?").slice(0, 2).toUpperCase();
   const band = avatarCredBand(coin.legitimacy);
@@ -5583,7 +5652,6 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
   const credBand = avatarCredBand(coin.legitimacy);
   const mcap = (Number(coin.priceUsd) || 0) * (Number(coin.supply) || 0);
   const floatAvail = coin.floatAvailable != null ? Number(coin.floatAvailable) : null;
-  const vg = volGraph(coin, Number(coin.priceUsd) || 0);
   return (
     <div className="glass-card dir-coin-card">
       <button className="dir-coin-main" onClick={onDetail} aria-label={`Details for ${coin.name}`}>
@@ -5607,7 +5675,7 @@ function DirectoryCoinCard({ coin, inCompare, onToggleCompare, onDetail, onBuy }
           {coin.volumeTier === "none" && <span className="dir-coin-ask">asking price · no trades yet</span>}
           <span className="dir-coin-mcap">MCap ${formatCount(mcap)}</span>
           {floatAvail != null && <span className="dir-coin-float">{formatCount(floatAvail)} available</span>}
-          {vg && <Sparkline points={vg.points} flatValue={vg.flatValue} stroke={vg.stroke} width={96} height={20} />}
+          <CoinChart coin={coin} price={Number(coin.priceUsd) || 0} width={96} height={20} />
         </div>
       </button>
       <div className="dir-coin-actions">
@@ -5730,7 +5798,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
               <span className="coin-detail-section-label">Price · last 30 trades</span>
               <span className={`price-text-sm${volTierClass(coin.volumeTier)}`}>${(Number(coin.priceUsd) || 0).toFixed(2)}</span>
             </div>
-            <Sparkline points={detailGraph.points} flatValue={detailGraph.flatValue} stroke={detailGraph.stroke} width={320} height={64} fluid />
+            <CoinChart coin={coin} price={Number(coin.priceUsd) || 0} width={320} height={64} fluid full />
             {coin.volumeTier === "none" && <span className="dir-coin-ask">asking price · no trades yet</span>}
           </div>
         )}
@@ -5863,7 +5931,7 @@ function CompareModal({ coins, onRemove, onClose, onBuy }) {
   );
 }
 
-function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap, sovereignAddress, phaseCoins, cashBalances, liveFx, tradeCashUsd, onTopup, coinHoldings }) {
+function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap, sovereignAddress, phaseCoins, cashBalances, liveFx, tradeCashUsd, onTopup, coinHoldings, pendingDetailChainId, onPendingDetailConsumed }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [marketEntry, setMarketEntry] = useState("select"); // select (dropdown) | browse (all category cards)
   const [subsectionFilter, setSubsectionFilter] = useState("all");
@@ -5881,6 +5949,17 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
   const [dirFilter, setDirFilter] = useState("mine"); // mine | others
   const [myCoinList, setMyCoinList] = useState([]); // this install's own issued coins
   const [detailCoin, setDetailCoin] = useState(null);
+  // Dashboard handoff (2026-11-03 unified chart): when a dashboard row is
+  // tapped, App switches to this tab with pendingDetailChainId set. Once
+  // the directory has loaded, open the SAME detail sheet for that coin
+  // (the directory object carries tier/series/ghost fields); then consume
+  // the handoff. A coin absent from the directory just clears the handoff.
+  useEffect(() => {
+    if (!pendingDetailChainId || dirLoading) return;
+    const found = dirCoins.find((c) => c.chainId === pendingDetailChainId);
+    if (found) setDetailCoin(found);
+    if (onPendingDetailConsumed) onPendingDetailConsumed();
+  }, [pendingDetailChainId, dirLoading, dirCoins]);
   const [compareIds, setCompareIds] = useState([]); // chainIds, max 3
   const [compareOpen, setCompareOpen] = useState(false);
   // Category browsing lives behind "Other assets" at the bottom of the page —
@@ -8138,6 +8217,7 @@ function DashboardTab({
   onOfferAction,
   onEditCoin,
   onFloatCoin,
+  onOpenCoinDetail,
 }) {
   const [showFundModal, setShowFundModal] = useState(false);
   // Counter-offer editing state: { offerId, offerUnits, requestUnits }.
@@ -8317,7 +8397,7 @@ function DashboardTab({
                 const positive = changePct >= 0;
                 const vg = volGraph(h.asset, h.asset.price);
                 return (
-                  <div className="holdings-row" key={h.assetId}>
+                  <div className="holdings-row" key={h.assetId} onClick={h.asset.chainId ? () => onOpenCoinDetail && onOpenCoinDetail(h.asset.chainId) : undefined} style={h.asset.chainId ? { cursor: "pointer" } : undefined}>
                     <div className="holdings-name-cell">
                       <span className="holdings-name">
                         {h.asset.name}
@@ -8333,7 +8413,7 @@ function DashboardTab({
                     <span>{h.units.toFixed(3)} sh</span>
                     <span>{formatCurrency(h.currentValueUsd, currency, liveFx)}</span>
                     {vg
-                      ? <Sparkline points={vg.points} flatValue={vg.flatValue} stroke={vg.stroke} width={72} height={26} />
+                      ? <CoinChart coin={h.asset} price={h.asset.price} width={72} height={26} />
                       : <Sparkline points={h.asset.history} width={72} height={26} positive={positive} />}
                   </div>
                 );
@@ -8358,7 +8438,7 @@ function DashboardTab({
         ) : (
           <div className="products-list">
             {ownedProducts.map((a) => (
-              <div className="product-row" key={a.id}>
+              <div className="product-row" key={a.id} onClick={() => onOpenCoinDetail && a.chainId && onOpenCoinDetail(a.chainId)} style={{ cursor: "pointer" }}>
                 <div className="product-row-icon">
                   <Icon name={ASSET_CATEGORIES[a.category].icon} size={16} />
                 </div>
@@ -8398,11 +8478,18 @@ function DashboardTab({
                     )}
                   </span>
                 </div>
+                <div className="product-row-stat">
+                  <span className="stat-label">Price</span>
+                  <span className={`stat-value${volTierClass(a.volumeTier)}`} title={volTitle(a)}>
+                    {formatCurrency(a.price, currency, liveFx)}
+                  </span>
+                  <CoinChart coin={a} price={a.price} width={96} height={20} />
+                </div>
                 {a.backendId && (
                   <button
                     className="btn btn-ghost btn-sm product-edit-btn"
                     type="button"
-                    onClick={() => onEditCoin(a)}
+                    onClick={(e) => { e.stopPropagation(); onEditCoin(a); }}
                   >
                     Edit
                   </button>
@@ -8411,7 +8498,7 @@ function DashboardTab({
                   <button
                     className="btn btn-ghost btn-sm product-edit-btn"
                     type="button"
-                    onClick={() => onFloatCoin(a)}
+                    onClick={(e) => { e.stopPropagation(); onFloatCoin(a); }}
                   >
                     Float
                   </button>
@@ -8437,7 +8524,7 @@ function DashboardTab({
           </div>
           <div className="products-list">
             {coinHoldings.map((h) => (
-              <div className="product-row" key={h.chainId}>
+              <div className="product-row" key={h.chainId} onClick={() => onOpenCoinDetail && h.chainId && onOpenCoinDetail(h.chainId)} style={{ cursor: "pointer" }}>
                 <div className="product-row-icon">
                   <Icon name={ASSET_CATEGORIES[h.category]?.icon || "coin"} size={16} />
                 </div>
@@ -8460,6 +8547,13 @@ function DashboardTab({
                   <span className="stat-value">
                     {formatCurrency(h.units * h.priceUsd, currency, liveFx)}
                   </span>
+                </div>
+                <div className="product-row-stat">
+                  <span className="stat-label">Price</span>
+                  <span className={`stat-value${volTierClass(h.volumeTier)}`} title={volTitle(h)}>
+                    {formatCurrency(h.priceUsd, currency, liveFx)}
+                  </span>
+                  <CoinChart coin={h} price={h.priceUsd} width={96} height={20} />
                 </div>
               </div>
             ))}
@@ -9462,6 +9556,8 @@ function GlobalStyles() {
          the marketplace rows, never a fabricated series. */
       .coin-detail-graph { margin: 0 0 14px; }
       .coin-detail-graph-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+      .coin-chart-legend { display: flex; gap: 14px; margin-top: 6px; font-size: 11.5px; font-weight: 600; opacity: 0.75; }
+      .legend-ghost { color: #94a3b8; }
       .coin-detail-about { margin-bottom: 12px; }
       .coin-detail-tagline { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
       .coin-detail-thesis { font-size: 13px; line-height: 1.55; opacity: 0.8; margin: 0; white-space: pre-wrap; }
