@@ -479,6 +479,20 @@ const ASSET_CATEGORIES = {
   },
 };
 
+// Coins issued outside this app (agent / API / admin factory) can carry
+// category labels that are not keys of ASSET_CATEGORIES ("Business",
+// "Creator", ...). Rendering those with a bare ASSET_CATEGORIES[category]
+// lookup crashes the view, so resolve display meta through here: exact
+// key first, then a small alias map, then a neutral fallback that keeps
+// the coin's own label.
+const CATEGORY_ALIASES = { Business: "smallBusiness", Creator: "socialMedia" };
+function assetCategoryMeta(category) {
+  if (category && ASSET_CATEGORIES[category]) return ASSET_CATEGORIES[category];
+  const alias = category ? CATEGORY_ALIASES[category] : undefined;
+  if (alias && ASSET_CATEGORIES[alias]) return ASSET_CATEGORIES[alias];
+  return { label: category || "Coin", icon: "coin" };
+}
+
 // Networks are a SEPARATE filter axis from category. Category answers "what
 // economically is this asset" (a stock, a fund, a piece of real estate);
 // network answers "where does it live and who verifies it." A listing has
@@ -6664,7 +6678,7 @@ function AssetListRow({ asset, currency, liveFx, expanded, onRowClick, onInvest 
         }}
       >
         <div className="asset-avatar asset-avatar-sm">
-          <Icon name={ASSET_CATEGORIES[asset.category].icon} size={16} />
+          <Icon name={assetCategoryMeta(asset.category).icon} size={16} />
         </div>
         <div className="asset-list-row-main">
           <div className="asset-list-row-top">
@@ -6861,7 +6875,7 @@ function FinancialsModal({ asset, currency, liveFx, onClose, onInvest }) {
 
         <div className="financials-header">
           <div className="asset-avatar">
-            <Icon name={ASSET_CATEGORIES[asset.category].icon} size={20} />
+            <Icon name={assetCategoryMeta(asset.category).icon} size={20} />
           </div>
           <div>
             <h3>
@@ -6869,7 +6883,7 @@ function FinancialsModal({ asset, currency, liveFx, onClose, onInvest }) {
               {asset.ticker && <span className="ticker-tag ticker-tag-lg">{asset.ticker}</span>}
             </h3>
             <span className="preview-category">
-              {ASSET_CATEGORIES[asset.category].label}
+              {assetCategoryMeta(asset.category).label}
               {asset.subsection ? ` · ${asset.subsection}` : ""}
             </span>
           </div>
@@ -8548,7 +8562,7 @@ function DashboardTab({
                         {h.asset.name}
                         {h.asset.ticker && <span className="ticker-tag">{h.asset.ticker}</span>}
                       </span>
-                      <span className="holdings-category-tag">{ASSET_CATEGORIES[h.asset.category].label}</span>
+                      <span className="holdings-category-tag">{assetCategoryMeta(h.asset.category).label}</span>
                     </div>
                     <span className={volTierClass(h.asset.volumeTier).trim() || undefined} title={volTitle(h.asset)}>{formatCurrency(h.asset.price, currency, liveFx)}</span>
                     <span className={positive ? "price-up" : "price-down"}>
@@ -8585,7 +8599,7 @@ function DashboardTab({
             {ownedProducts.map((a) => (
               <div className="product-row" key={a.id} onClick={() => onOpenCoinDetail && a.chainId && onOpenCoinDetail(a.chainId)} style={{ cursor: "pointer" }}>
                 <div className="product-row-icon">
-                  <Icon name={ASSET_CATEGORIES[a.category].icon} size={16} />
+                  <Icon name={assetCategoryMeta(a.category).icon} size={16} />
                 </div>
                 <div className="product-row-main">
                   <span className="holdings-name">
@@ -8593,7 +8607,7 @@ function DashboardTab({
                     {a.ticker && <span className="ticker-tag">{a.ticker}</span>}
                   </span>
                   <span className="holdings-category-tag">
-                    {ASSET_CATEGORIES[a.category].label}
+                    {assetCategoryMeta(a.category).label}
                     {a.subsection ? ` · ${a.subsection}` : ""}
                   </span>
                   {a.chainId && <span className="chain-id-stamp">{a.chainId}</span>}
