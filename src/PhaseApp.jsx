@@ -2452,7 +2452,6 @@ function AppInner() {
         volumePctFloat: typeof c.volumePctFloat === "number" ? c.volumePctFloat : null,
         priceSeries30d: Array.isArray(c.priceSeries30d) ? c.priceSeries30d : null,
         ghostSeries30d: Array.isArray(c.ghostSeries30d) ? c.ghostSeries30d : null,
-        ghostMeta30d: c.ghostMeta30d && typeof c.ghostMeta30d === "object" ? c.ghostMeta30d : null,
       }));
       setAssets((prev) => {
         const filtered = prev.filter((a) => !a.id || !String(a.id).startsWith("coin-") || !a.isOwner);
@@ -2653,7 +2652,6 @@ function AppInner() {
                 volumePctFloat: typeof c.volumePctFloat === "number" ? c.volumePctFloat : null,
                 priceSeries30d: Array.isArray(c.priceSeries30d) ? c.priceSeries30d : null,
                 ghostSeries30d: Array.isArray(c.ghostSeries30d) ? c.ghostSeries30d : null,
-                ghostMeta30d: c.ghostMeta30d && typeof c.ghostMeta30d === "object" ? c.ghostMeta30d : null,
               };
             }
             return null;
@@ -5710,9 +5708,6 @@ function CoinChart({ coin, price, width = 96, height = 20, fluid = false, full =
         <div className="coin-chart-legend">
           <span className="legend-solid">— cash price</span>
           <span className="legend-ghost">··· swap-implied (ghost)</span>
-          {coin.ghostMeta30d && coin.ghostMeta30d.swaps > 0 && (
-            <span className="legend-ghost">· from {coin.ghostMeta30d.swaps} swap{coin.ghostMeta30d.swaps === 1 ? "" : "s"}{typeof coin.ghostMeta30d.confidence === "number" ? ` · ${Math.round(coin.ghostMeta30d.confidence * 100)}% confidence` : ""}</span>
-          )}
         </div>
       )}
     </>
