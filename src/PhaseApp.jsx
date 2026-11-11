@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { MARKETPLACE_LOCKED, CRYPTO_FUNDING_LOCKED, GO_LIVE_LOCKED } from "./feature-flags.js";
 import { generateWallet, restoreWallet, createSovereignChain } from "./sovereign-client.js";
 // stripe-client.js powers live Stripe card funding (see CardFundPanel).
@@ -1050,7 +1051,9 @@ function Sparkline({ points, width = 96, height = 32, positive = true, stroke = 
   const ghostPath = ghost.length > 1
     ? ghost
       .map((p, i) => {
-        const x = i * (width / (ghost.length - 1));
+        // Inset 3px at both ends so the first/last points aren't clipped
+        // by the SVG viewport edge.
+        const x = 3 + (i * (width - 6)) / (ghost.length - 1);
         const y = yFor(p);
         return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
       })
@@ -1080,7 +1083,22 @@ function Sparkline({ points, width = 96, height = 32, positive = true, stroke = 
           <path className="mini-spark-ghost" d={ghostPath} fill="none" stroke={ghostStroke} strokeWidth="2" strokeDasharray="4 3" />
         )}
         {ghost.length === 1 && (
-          <circle cx={width} cy={yFor(ghost[0])} r="3" fill={ghostStroke} />
+          <>
+            {/* A lone ghost point used to be a 3px dot centred on the
+                right edge — half clipped by the viewport and lost under
+                the cash line when the values were close. Draw it as a
+                short dashed tail ending in a haloed dot, inset from the
+                edge, so a single day of bartering is actually visible. */}
+            <path
+              d={`M${Math.max(0, width - 36).toFixed(1)},${yFor(ghost[0]).toFixed(1)} L${(width - 8).toFixed(1)},${yFor(ghost[0]).toFixed(1)}`}
+              fill="none"
+              stroke={ghostStroke}
+              strokeWidth="2.5"
+              strokeDasharray="4 3"
+            />
+            <circle cx={width - 8} cy={yFor(ghost[0])} r="7" fill={ghostStroke} opacity="0.25" />
+            <circle cx={width - 8} cy={yFor(ghost[0])} r="4" fill={ghostStroke} stroke="#0b100d" strokeWidth="1.5" />
+          </>
         )}
         {idx !== null && (
           <>
@@ -5876,7 +5894,11 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
     ["Issued", issuedOn],
     ["Status", "● Online"],
   ];
-  return (
+  // Rendered through a portal to <body>: inside the tab tree, ancestor
+  // transforms/filters can trap position:fixed, which made this sheet
+  // open far down the page instead of in front of the current view. The
+  // overlay keeps its translucent blur — only the anchoring changes.
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card coin-detail-modal" ref={topRef} onClick={(e) => e.stopPropagation()}>
         <button className="icon-btn modal-close" onClick={onClose}>
@@ -5959,7 +5981,8 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
