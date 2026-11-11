@@ -209,10 +209,10 @@ const marketApi = {
       idempotencyKey,
     }),
   listDocs: (backendId) => backendFetch(`/coins/${encodeURIComponent(backendId)}/documents`),
-  uploadDoc: (backendId, { filename, mimeType, dataBase64 }) =>
+  uploadDoc: (backendId, { filename, mimeType, dataBase64, docType }) =>
     backendFetch(`/coins/${encodeURIComponent(backendId)}/documents`, {
       method: "POST",
-      body: { filename, mimeType, dataBase64 },
+      body: { filename, mimeType, dataBase64, ...(docType ? { docType } : {}) },
     }),
   deleteDoc: (backendId, docId) =>
     backendFetch(`/coins/${encodeURIComponent(backendId)}/documents/${encodeURIComponent(docId)}`, {
@@ -220,6 +220,31 @@ const marketApi = {
     }),
   docDownloadUrl: (backendId, docId) =>
     `${PHASE_BACKEND_URL}/coins/${encodeURIComponent(backendId)}/documents/${encodeURIComponent(docId)}`,
+  // Cred 2.0: verification-class documents are owner-only on the backend,
+  // and a plain link navigation carries no Authorization header — so the
+  // owner's own downloads fetch the file WITH the session token and save
+  // it from a blob URL. (Public filings keep using docDownloadUrl links.)
+  downloadDocAuthed: async (backendId, docId, filename) => {
+    const headers = {};
+    try {
+      const token = getAuthToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+    } catch {}
+    const res = await fetch(
+      `${PHASE_BACKEND_URL}/coins/${encodeURIComponent(backendId)}/documents/${encodeURIComponent(docId)}`,
+      { headers }
+    );
+    if (!res.ok) throw new Error("Download failed. Please try again.");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "document";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  },
   chainBalance: (chainId, address) =>
     backendFetch(
       `/sovereign/chains/${encodeURIComponent(chainId)}/balances/${encodeURIComponent(address)}`
@@ -2063,9 +2088,36 @@ function IncreaseFloatModal({ coin, onClose, onDone }) {
   );
 }
 
+/* Cred 2.0 (spec §3): document types and classes. The type decides
+   which Phase Cred item an upload earns; the class decides who can see
+   the file. Verification-class documents are private proof (owner-only;
+   buyers see the Cred check they earn). Filing-class documents are the
+   public disclosure layer shown in the coin page's "More info" view. */
+const DOC_TYPE_OPTIONS = [
+  { value: "business_license", label: "Business license" },
+  { value: "business_registration", label: "Business registration" },
+  { value: "government_id", label: "Government ID" },
+  { value: "bank_statement", label: "Bank statement" },
+  { value: "financial_report", label: "Financial report" },
+  { value: "deed", label: "Deed" },
+  { value: "mortgage_document", label: "Mortgage document" },
+  { value: "property_tax", label: "Property tax record" },
+  { value: "lease_agreement", label: "Lease agreement" },
+  { value: "certificate_of_authenticity", label: "Certificate of authenticity" },
+  { value: "appraisal", label: "Appraisal" },
+  { value: "provenance_record", label: "Provenance record" },
+  { value: "other", label: "Other document" },
+];
+const PRIVATE_DOC_TYPES = new Set(["government_id", "bank_statement", "financial_report", "other"]);
+function docTypeLabel(v) {
+  const hit = DOC_TYPE_OPTIONS.find((o) => o.value === v);
+  return hit ? hit.label : "Document";
+}
+
 /* Per-coin documents for Documentation & Compliance: upload, list, download, delete. */
 function CoinDocs({ backendId, coinName }) {
   const [docs, setDocs] = useState(null); // null = not loaded yet
+  const [docType, setDocType] = useState("business_license");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
@@ -2105,12 +2157,22 @@ function CoinDocs({ backendId, coinName }) {
         filename: file.name,
         mimeType: file.type || "application/octet-stream",
         dataBase64,
+        docType,
       });
       await refresh();
     } catch (err) {
       setError(err.message || "Upload failed. Please try again.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const downloadPrivate = async (d) => {
+    setError("");
+    try {
+      await marketApi.downloadDocAuthed(backendId, d.id, d.filename);
+    } catch (err) {
+      setError(err.message || "Download failed. Please try again.");
     }
   };
 
@@ -2127,6 +2189,25 @@ function CoinDocs({ backendId, coinName }) {
 
   return (
     <div className="coin-docs">
+      <div className="coin-docs-type-row">
+        <label className="field-label" htmlFor={`doc-type-${backendId}`}>Document type — this is what earns Phase Cred</label>
+        <select
+          id={`doc-type-${backendId}`}
+          className="input"
+          value={docType}
+          onChange={(e) => setDocType(e.target.value)}
+          disabled={uploading}
+        >
+          {DOC_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <p className="field-hint">
+          {PRIVATE_DOC_TYPES.has(docType)
+            ? "Private verification — only you can download this file. Buyers see the \u2713 it earns on your Phase Cred, never the document."
+            : "Public filing — buyers can view and download it from your coin's More info."}
+        </p>
+      </div>
       <div className="coin-docs-header">
         <span className="field-label">Uploaded documents</span>
         <button
@@ -2154,16 +2235,22 @@ function CoinDocs({ backendId, coinName }) {
         <ul className="coin-docs-list">
           {docs.map((d) => (
             <li key={d.id} className="coin-docs-row">
-              <a
-                href={marketApi.docDownloadUrl(backendId, d.id)}
-                target="_blank"
-                rel="noopener"
-                className="coin-docs-name"
-              >
-                {d.filename}
-              </a>
+              {PRIVATE_DOC_TYPES.has(d.docType) ? (
+                <button type="button" className="coin-docs-name" onClick={() => downloadPrivate(d)}>
+                  {d.filename}
+                </button>
+              ) : (
+                <a
+                  href={marketApi.docDownloadUrl(backendId, d.id)}
+                  target="_blank"
+                  rel="noopener"
+                  className="coin-docs-name"
+                >
+                  {d.filename}
+                </a>
+              )}
               <span className="coin-docs-size">
-                {d.sizeBytes > 1024 * 1024
+                {docTypeLabel(d.docType)} · {d.sizeBytes > 1024 * 1024
                   ? `${(d.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
                   : `${Math.max(1, Math.round(d.sizeBytes / 1024))} KB`}
               </span>
@@ -5834,6 +5921,7 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
           </div>
         )}
         <CoinCredBlock coin={coin} />
+        <CoinMoreInfo coin={coin} />
         <div className="coin-detail-rows">
           <p className="coin-detail-section-label">Financials</p>
           {rows.map(([label, value]) => (
@@ -5862,6 +5950,63 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
 }
 
 // Side-by-side comparison of up to 3 coins.
+/* Buyer research — "More info" (Cred 2.0 spec §4). The issuer's
+   PUBLIC filings with download buttons, opened from the coin detail.
+   The backend gates the documents list to filing-class documents for
+   non-owners; verification documents (government ID, bank statements)
+   are never returned — buyers see the Phase Cred check they earn,
+   never the file. The client filter below is belt-and-braces so the
+   owner browsing their own coin sees exactly what buyers see. */
+function CoinMoreInfo({ coin }) {
+  const backendId = coin.backendId || coin.id;
+  const [open, setOpen] = useState(false);
+  const [docs, setDocs] = useState(null); // null = not loaded yet
+  useEffect(() => {
+    if (!open || docs !== null || !backendId) return;
+    marketApi
+      .listDocs(backendId)
+      .then((d) => setDocs((d.documents || []).filter((x) => !PRIVATE_DOC_TYPES.has(x.docType))))
+      .catch(() => setDocs([]));
+  }, [open, docs, backendId]);
+  if (!backendId) return null;
+  return (
+    <div className="coin-more-info">
+      <button className="btn btn-ghost btn-sm" type="button" onClick={() => setOpen((o) => !o)}>
+        {open ? "Hide info" : "More info"}
+      </button>
+      {open && (
+        <div className="coin-more-info-body">
+          <p className="coin-detail-section-label">Public filings from the issuer</p>
+          {docs === null ? (
+            <p className="field-hint">Loading\u2026</p>
+          ) : docs.length === 0 ? (
+            <p className="field-hint">
+              This issuer hasn't published any public documents yet. The proof they've verified privately shows in their Phase Cred above.
+            </p>
+          ) : (
+            <ul className="coin-docs-list">
+              {docs.map((d) => (
+                <li key={d.id} className="coin-docs-row">
+                  <span className="coin-docs-name">{d.filename}</span>
+                  <span className="coin-docs-size">{docTypeLabel(d.docType)}</span>
+                  <a
+                    className="btn btn-ghost btn-sm"
+                    href={marketApi.docDownloadUrl(backendId, d.id)}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    Download
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CompareModal({ coins, onRemove, onClose, onBuy }) {
   const topRef = useModalTop();
   const mcap = (c) => (Number(c.priceUsd) || 0) * (Number(c.supply) || 0);
