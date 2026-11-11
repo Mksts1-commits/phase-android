@@ -629,7 +629,7 @@ const BASE_FX = {
   phase: 10,
 };
 
-const PLATFORMS = ["YouTube", "TikTok", "X", "Instagram"];
+const PLATFORMS = ["YouTube", "TikTok", "Instagram", "X", "Facebook"];
 
 // Funding methods offered in the "Fund Account" flow. Funding is crypto-only:
 // the only rail is a crypto wallet transfer (USDC/USDT). Fiat methods (card,
@@ -1849,6 +1849,25 @@ const SOCIAL_PLATFORM_OPTIONS = [
   { value: "facebook", label: "Facebook" },
 ];
 
+/* Google rating chip: the business's Google rating snapshot, shown on
+ * the coin page as a live link to its Google Maps listing. */
+function GoogleRatingChip({ name, googleRating }) {
+  const rating = Number(googleRating?.rating);
+  if (!Number.isFinite(rating) || rating <= 0) return null;
+  const reviews = Math.max(0, Math.floor(Number(googleRating?.reviews) || 0));
+  const href = `https://www.google.com/maps/search/${encodeURIComponent(name || "")}`;
+  return (
+    <a
+      className="btn-external-link btn-social-link"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <Icon name="external" size={14} /> ★ {rating.toFixed(1)}{reviews > 0 ? ` · ${reviews.toLocaleString()} Google reviews` : " · Google rating"}
+    </a>
+  );
+}
+
 /* Edit a published coin: tagline, website, and social links (e.g. TikTok).
  * Economic fundamentals stay frozen — the backend rejects anything else. */
 function EditCoinModal({ coin, onClose, onSaved }) {
@@ -1858,6 +1877,8 @@ function EditCoinModal({ coin, onClose, onSaved }) {
   const [tagline, setTagline] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [profiles, setProfiles] = useState([]); // [{ platform, url }]
+  const [gRating, setGRating] = useState("");
+  const [gReviews, setGReviews] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1873,6 +1894,10 @@ function EditCoinModal({ coin, onClose, onSaved }) {
             platform: (p.platform || "tiktok").toLowerCase(),
             url: p.url || "",
           })));
+          if (match.googleRating) {
+            setGRating(String(match.googleRating.rating ?? ""));
+            setGReviews(String(match.googleRating.reviews ?? ""));
+          }
         }
       } catch (e) {
         if (!cancelled) setError("Couldn't load current details. You can still type new values and save.");
@@ -1906,6 +1931,9 @@ function EditCoinModal({ coin, onClose, onSaved }) {
       tagline: tagline.trim(),
       websiteUrl: normalizeUrl(websiteUrl) || null,
       socialProfiles: cleanProfiles,
+      googleRating: gRating.trim()
+        ? { rating: Number(gRating), reviews: Math.max(0, Math.floor(Number(gReviews) || 0)) }
+        : null,
     };
     setSaving(true);
     try {
@@ -1951,6 +1979,28 @@ function EditCoinModal({ coin, onClose, onSaved }) {
               value={websiteUrl}
               onChange={(e) => setWebsiteUrl(e.target.value)}
             />
+            <label className="field-label">Google rating</label>
+            <div className="social-edit-row">
+              <input
+                className="text-input"
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+                placeholder="Rating (e.g. 4.8)"
+                value={gRating}
+                onChange={(e) => setGRating(e.target.value)}
+              />
+              <input
+                className="text-input"
+                type="number"
+                min="0"
+                placeholder="Reviews (e.g. 1875)"
+                value={gReviews}
+                onChange={(e) => setGReviews(e.target.value)}
+              />
+            </div>
+            <p className="field-hint">Shown on your coin page as ★ rating · Google reviews. Leave the rating blank to hide it.</p>
             <label className="field-label">Social links</label>
             {profiles.map((p, i) => (
               <div className="social-edit-row" key={i}>
@@ -2462,6 +2512,7 @@ function AppInner() {
         totalMinted: c.totalShares || 0,
         retainedShares: c.retainedShares || 0,
         socialProfiles: c.socialProfiles || [],
+        googleRating: c.googleRating || null,
         websiteUrl: c.websiteUrl || null,
         isOwner: true,
         mine: true,
@@ -4398,6 +4449,7 @@ function IssuanceFlow({ coin, issuerAddress, onBack, onComplete }) {
         equityPublic: coin.equityPublic,
         equityRetained: coin.equityRetained,
         socialProfiles: coin.socialProfiles || [],
+        googleRating: coin.googleRating || null,
         websiteUrl: coin.websiteUrl || null,
         priceUsd: coin.startingPrice,
       });
@@ -5931,8 +5983,9 @@ function CoinDetailModal({ coin, inCompare, onToggleCompare, onClose, onBuy }) {
             {coin.valueThesis && <p className="coin-detail-thesis">{coin.valueThesis}</p>}
           </div>
         )}
-        {((coin.socialProfiles && coin.socialProfiles.length > 0) || coin.websiteUrl) && (
+        {((coin.socialProfiles && coin.socialProfiles.length > 0) || coin.websiteUrl || coin.googleRating) && (
           <div className="asset-external-links coin-detail-links">
+            <GoogleRatingChip name={coin.name} googleRating={coin.googleRating} />
             {(coin.socialProfiles || []).map((p, i) => (
               <a
                 key={`social-${p.platform}-${i}`}
@@ -6734,8 +6787,9 @@ function AssetListRow({ asset, currency, liveFx, expanded, onRowClick, onInvest 
           <p className="asset-tagline">{asset.tagline}</p>
 
           {/* Prominent external link buttons: social media for creator coins, website for business/assets */}
-          {((asset.socialProfiles && asset.socialProfiles.length > 0) || asset.socialUrl || asset.websiteUrl) && (
+          {((asset.socialProfiles && asset.socialProfiles.length > 0) || asset.socialUrl || asset.websiteUrl || asset.googleRating) && (
             <div className="asset-external-links">
+              <GoogleRatingChip name={asset.name} googleRating={asset.googleRating} />
               {(asset.socialProfiles && asset.socialProfiles.length > 0
                 ? asset.socialProfiles
                 : asset.socialUrl
