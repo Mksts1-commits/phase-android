@@ -2399,7 +2399,11 @@ function AppInner() {
   // -> "golive" (default). Guarded so it can never throw in the WebView.
   const [activeTab, setActiveTab] = useState(() => {
     try {
-      const t = new URLSearchParams(window.location.search).get("tab");
+      const params = new URLSearchParams(window.location.search);
+      // A ?coin=<ticker|chainId> demo link lands straight on that coin in
+      // the marketplace (the detail sheet opens once the directory loads).
+      if (params.get("coin")) return "market";
+      const t = params.get("tab");
       // Dashboard stays gated (mirrors TopNav): with no stored account a
       // ?tab=dashboard deep link falls through to "golive", never a blank tab.
       if (t === "dashboard" && !getAuthUser()) return "golive";
@@ -2412,7 +2416,13 @@ function AppInner() {
   // MarketplaceTab opens the SAME CoinDetailModal for it. The modal (and
   // its Buy flow) stays in MarketplaceTab, so Buy/Compare keep working
   // exactly as they do from a marketplace row.
-  const [pendingDetailChainId, setPendingDetailChainId] = useState(null);
+  // ?coin= deep link (outreach demo links): seed the pending detail with
+  // the raw ref — MarketplaceTab matches it against chainId OR ticker.
+  const [pendingDetailChainId, setPendingDetailChainId] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("coin") || null;
+    } catch { return null; }
+  });
   const openCoinDetail = useCallback((chainId) => {
     if (!chainId) return;
     setPendingDetailChainId(chainId);
@@ -6191,7 +6201,8 @@ function MarketplaceTab({ assets, currency, setCurrency, onInvest, onInvestSwap,
   // the handoff. A coin absent from the directory just clears the handoff.
   useEffect(() => {
     if (!pendingDetailChainId || dirLoading) return;
-    const found = dirCoins.find((c) => c.chainId === pendingDetailChainId);
+    const ref = String(pendingDetailChainId).toUpperCase();
+    const found = dirCoins.find((c) => c.chainId === pendingDetailChainId || (c.ticker || "").toUpperCase() === ref);
     if (found) setDetailCoin(found);
     if (onPendingDetailConsumed) onPendingDetailConsumed();
   }, [pendingDetailChainId, dirLoading, dirCoins]);
